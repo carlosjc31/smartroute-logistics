@@ -1,0 +1,46 @@
+services:
+  # Banco de Dados
+  db:
+    image: postgres:16-alpine
+    container_name: smart-logistics-db
+    environment:
+      POSTGRES_DB: logistics_db
+      POSTGRES_USER: user_admin
+      POSTGRES_PASSWORD: password_secure
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_admin -d logistics_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # AI Engine
+  ai-engine:
+    build: ./ai-engine
+    container_name: ai-engine-service
+    environment:
+      - MODEL_MODE=development
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  # Backend Core
+  backend-core:
+    build: ./backend-core
+    container_name: backend-core-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/logistics_db
+      - AI_ENGINE_URL=http://ai-engine:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      ai-engine:
+        condition: service_started
+
+networks:
+  default:
+    name: smart-logistics-network

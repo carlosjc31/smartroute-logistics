@@ -1,0 +1,17 @@
+smart-logistics-system/
+├── backend-core/             # Java 21 + Spring Boot (O Coração)
+│   ├── src/main/java/com/logistics/
+│   │   ├── domain/           # Lógica de negócio pura (Entidades e Regras)
+│   │   ├── application/      # Casos de uso e Portas (Interfaces)
+│   │   └── infrastructure/   # Adaptadores (DB, APIs externas, Configs)
+│   └── pom.xml
+├── ai-engine/                # Python + FastAPI (O Cérebro)
+│   ├── models/               # Arquivos .pkl ou .h5 do Alchemist
+│   ├── scripts/              # Pipelines de treinamento
+│   └── main.py               # API de inferência
+├── frontend-admin/           # TypeScript + React (A Visão)
+│   ├── src/components/
+│   └── src/pages/
+└── infra/                    # IaC (O Terreno)
+    ├── docker-compose.yml    # Orquestração local
+    └── terraform/            # Configuração Azure/AWS
