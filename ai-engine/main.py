@@ -1,27 +1,50 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from datetime import datetime
-import random
+import joblib
+import numpy as np
+import uvicorn
 
-app = FastAPI(title="SmartRoute AI Engine")
+app = FastAPI(title="Smartroute AI Engine", version="1.0.0")
 
+# Running the model
+try:
+    model = joblib.load("delivery_model.pkl")
+    print("[ALCHEMIST]: Modelo RandomForest carregado e operacional.")
+except Exception as e:
+    print(f"[ALCHEMIST]: Falha ao carregar o modelo: Erro:{e}")
+
+# Input of the model
 class TripData(BaseModel):
-    origin_lat: float
-    origin_lng: float
-    dest_lat: float
-    dest_lng: float
-    payload_weight: float
-    departure_time: datetime
+    distance: float
+    weight: float
+    hour_of_day: int
+    is_rainy: int
 
-@app.post("/predict-eta")
+# Resposta simulada (Mock) para o primeiro teste
+@app.post("/predict/eta")
 async def predict_eta(data: TripData):
-    # Mock do modelo de ML: Cálculo baseado em distância básica + peso
-    base_hours = random.uniform(2, 5)
-    weight_factor = data.payload_weight / 1000  # Atraso por tonelada
-    prediction = base_hours + weight_factor
+    if model is None:
+        raise HTTPException(status_code=500, detail="Cérebro de IA offline.")
+    try:
+        features = np.array([[data.distance, data.weight, data.hour_of_day, data.is_rainy]])
 
-    return {
-        "predicted_arrival": prediction,
-        "confidence_score": 0.92,
-        "model_version": "v1.0.0-mock"
-    }
+        predicted_hours = model.predict(features)[0]
+
+        return {
+            "predicted_arrival_hours": round(predicted_hours, 2),
+            "confidence_score": 0.89, # Score base para o primeiro teste
+            "model_version": "v1.0-random-forest",
+            "status": "success",
+            "metadata": {
+                "traffic_impact": "High" if data.hour_of_day in [7, 8, 9, 17, 18, 19] else "Normal"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na inferência: {str(e)}")
+
+@app.get("/health")
+async def health_check():
+    return {"status": "online", "brain": "Active" if model else "Offline"}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
