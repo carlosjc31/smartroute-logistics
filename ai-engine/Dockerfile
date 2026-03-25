@@ -1,28 +1,29 @@
-# Estágio 1: Builder (Onde instalamos as dependências)
-FROM python:3.12-alpine AS builder
+# Estágio 1: Builder (Usando SLIM para suportar Scikit-Learn e Numpy)
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
 # Instalando o uv para gerenciar dependências com velocidade
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copiamos os arquivos de projeto primeiro (para cache do Docker)
+# Copiamos os arquivos de configuração
 COPY pyproject.toml .
 
-# Instalamos as dependências em uma pasta específica
-RUN uv pip install --system --no-cache -r pyproject.toml
+# Compilamos o TOML em requirements e instalamos rapidamente
+RUN uv pip compile pyproject.toml -o requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
 
-# Estágio 2: Runtime (Imagem final, leve e segura)
-FROM python:3.12-alpine
+# Estágio 2: Runtime (Imagem final, usando SLIM)
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copiamos apenas as bibliotecas instaladas no estágio anterior
+# Copiamos as bibliotecas de ML instaladas no estágio 1
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copiamos o código da aplicação
-COPY main.py .
+# Copiamos TODO o código do projeto e o modelo treinado (.pkl)
+COPY . .
 
 EXPOSE 8000
 

@@ -7,12 +7,12 @@ public record Trip(
   UUID id,
   Coordinates origin,
   Coordinates destination,
-  Double payloadWwight,
+  Double payloadWeight,
   LocalDateTime departureTime,
   TripStatus status
 ) {
   public Trip {
-    if (payloadWwight < 0)
+    if (payloadWeight < 0)
       throw new IllegalArgumentException("Peso não pode ser negativo");
     if (origin.equals(destination))
       throw new IllegalArgumentException("Origem e destino não podem ser iguais");

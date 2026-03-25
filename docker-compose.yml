@@ -35,7 +35,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=password_secure
       - AI_ENGINE_URL=http://ai-engine:8000
     ports:
-      - "8081:8080"
+      - "8080:8080"
     depends_on:
       db:
         condition: service_healthy

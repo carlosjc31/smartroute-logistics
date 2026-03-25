@@ -19,7 +19,6 @@ import lombok.Setter;
 @Table(name = "trips")
 @Getter @Setter @NoArgsConstructor
 public class TripEntity {
-    public static final String TripStatus = null;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
