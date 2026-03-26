@@ -21,7 +21,7 @@ class TripData(BaseModel):
     is_rainy: int
 
 # Resposta simulada (Mock) para o primeiro teste
-@app.post("/predict/eta")
+@app.post("/predict/eta", responses={500: {"description": "Cérebro de IA offline."}})
 async def predict_eta(data: TripData):
     if model is None:
         raise HTTPException(status_code=500, detail="Cérebro de IA offline.")

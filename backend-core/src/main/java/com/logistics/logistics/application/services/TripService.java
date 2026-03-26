@@ -33,8 +33,8 @@ public class TripService {
     entity.setPayloadWeight(trip.payloadWeight());
     entity.setStatus(TripEntity.TripStatus.PENDING);
 
-    Long hoursToAdd = prediction.predicted_arrival().longValue();
-    entity.setPredictedArrival(LocalDateTime.now().plusHours((hoursToAdd)));
+    Long predictedHours = prediction.predicted_arrival().longValue();
+    entity.setPredictedArrival(LocalDateTime.now().plusHours((predictedHours)));
 
     return repository.save(entity);
   }

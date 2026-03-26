@@ -45,3 +45,5 @@ services:
 networks:
   default:
     name: smart-logistics-network
+
+# docker exec -it smart-logistics-db psql -U user_admin -d logistics_db

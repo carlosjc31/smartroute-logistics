@@ -21,6 +21,6 @@ public record Trip(
     PENDING,
     IN_TRANSIT,
     COMPLETED,
-    DELEYED
+    DELAYED
   }
 }
