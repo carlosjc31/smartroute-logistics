@@ -13,7 +13,7 @@ def train():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     print("Treinando o modelo de predição...")
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model = RandomForestRegressor(n_estimators=100, random_state=42, min_samples_leaf=2, max_features='sqrt')
     model.fit(X_train, y_train)
 
     preds = model.predict(X_test)

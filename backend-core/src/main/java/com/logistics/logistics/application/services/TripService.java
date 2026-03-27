@@ -1,7 +1,5 @@
 package com.logistics.logistics.application.services;
 
-import java.time.LocalDateTime;
-
 import org.springframework.stereotype.Service;
 
 import com.logistics.logistics.domain.Trip;
@@ -33,8 +31,9 @@ public class TripService {
     entity.setPayloadWeight(trip.payloadWeight());
     entity.setStatus(TripEntity.TripStatus.PENDING);
 
-    Long predictedHours = prediction.predicted_arrival().longValue();
-    entity.setPredictedArrival(LocalDateTime.now().plusHours((predictedHours)));
+    entity.setDepartureTime(trip.departureTime());
+    Long predictedHours = prediction.predictedArrivalHours().longValue();
+    entity.setPredictedArrival(trip.departureTime().plusHours((predictedHours)));
 
     return repository.save(entity);
   }

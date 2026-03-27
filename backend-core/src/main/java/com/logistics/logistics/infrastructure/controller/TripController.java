@@ -23,10 +23,8 @@ private final TripService tripService;
 
     @PostMapping
     public ResponseEntity<TripEntity> createTrip(@Valid @RequestBody TripRequestDTO dto) {
-        // Converte o DTO (Entrada) para o Domain (Regra de Negócio)
         Trip trip = dto.toDomain();
 
-        // Processa a viagem e a IA
         TripEntity savedTrip = tripService.createNewTrip(trip);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(savedTrip);

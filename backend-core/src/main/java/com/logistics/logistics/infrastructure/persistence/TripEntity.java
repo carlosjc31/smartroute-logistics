@@ -42,6 +42,6 @@ public class TripEntity {
 
     private LocalDateTime predictedArrival;
     private LocalDateTime createdAt = LocalDateTime.now();
-
+    private LocalDateTime departureTime;
 
 }

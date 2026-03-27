@@ -22,7 +22,7 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copiamos TODO o código do projeto e o modelo treinado (.pkl)
+
 COPY . .
 
 EXPOSE 8000

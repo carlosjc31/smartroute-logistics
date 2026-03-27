@@ -42,6 +42,16 @@ services:
       ai-engine:
         condition: service_started
 
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: smart-logistics-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - db
+
 networks:
   default:
     name: smart-logistics-network
