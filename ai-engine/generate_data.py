@@ -6,7 +6,7 @@ def generate_logistic_dataset(n_samples=5000):
 
     distance = rng.uniform(10, 500, n_samples) # km
     weight = rng.uniform(1, 30, n_samples)     # toneladas
-    hour_of_day = rng.randint(0, 24, n_samples) # Horas do dia
+    hour_of_day = rng.integers(0, 24, n_samples) # Horas do dia
     is_rainy = rng.choice([0, 1], n_samples, p=[0.7, 0.3]) # 30% chuva
 
     base_time = distance / 80
