@@ -1,12 +1,22 @@
 import { useState } from 'react'
 import axios from 'axios'
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+
+// Próxima hora cheia no fuso local, no formato aceito por <input type="datetime-local">
+const nextFullHour = () => {
+  const date = new Date()
+  date.setHours(date.getHours() + 1, 0, 0, 0)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:00`
+}
+
 function App() {
   // Estados para os campos do formulário (Entradas do Usuário)
   const [originCity, setOriginCity] = useState('')
   const [destinationCity, setDestinationCity] = useState('')
   const [weight, setWeight] = useState('')
-  const [departureTime, setDepartureTime] = useState('2026-03-30T08:00') // Data padrão no futuro
+  const [departureTime, setDepartureTime] = useState(nextFullHour)
 
   // Estados para o controle da tela
   const [tripResult, setTripResult] = useState(null)
@@ -56,10 +66,7 @@ function App() {
         departureTime: departureTime + ":00"
       }
 
-      const response = await axios.post('http://localhost:8080/api/v1/trips', payload)
-
-      console.log("DADOS ENVIADOS:", payload);
-      console.log("RESPOSTA DO BACKEND:", response.data);
+      const response = await axios.post(`${API_URL}/api/v1/trips`, payload)
 
       setTripResult(response.data)
       setStatusMessage('Viagem despachada com sucesso!')
