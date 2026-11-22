@@ -17,16 +17,18 @@ chegada prevista.
 ```
 ┌──────────────┐   POST /api/v1/trips   ┌──────────────────┐  POST /predict/eta  ┌──────────────────┐
 │   Frontend   │ ─────────────────────▶ │   backend-core   │ ──────────────────▶ │    ai-engine     │
-│ React + Vite │                        │ Java 21 · Spring │                     │ Python · FastAPI │
-└──────┬───────┘                        └────────┬─────────┘                     │  RandomForest    │
-       │ geocoding                               │ JPA                           └──────────────────┘
-       ▼                                         ▼
- OpenStreetMap (Nominatim)               PostgreSQL 15
+│ React + TS   │   GET /api/v1/geocode  │ Java 21 · Spring │                     │ Python · FastAPI │
+└──────────────┘                        └───┬──────────┬───┘                     │  RandomForest    │
+                                            │ JPA      │ geocoding (cache)     └──────────────────┘
+                                            ▼          ▼
+                                    PostgreSQL 15   OpenStreetMap (Nominatim)
 ```
 
-- **frontend:** converte o nome das cidades em coordenadas (OpenStreetMap) e cria a viagem.
-- **backend-core:** organizado em camadas `domain` / `application` / `infrastructure` (arquitetura
-  hexagonal). Um *adapter* chama o serviço de IA e o resultado define a chegada prevista.
+- **frontend:** despacho de viagens, lista com filtro por status e detalhe com mudança de status.
+- **backend-core:** arquitetura hexagonal (`domain` / `application` com portas / `infrastructure` com
+  adapters). Geocodifica cidades com cache, chama o serviço de IA com timeout, retry e circuit breaker e,
+  se a IA estiver fora, usa uma estimativa heurística. Schema versionado com Flyway; API documentada em
+  `/swagger-ui.html`.
 - **ai-engine:** API FastAPI que carrega um `RandomForestRegressor` (scikit-learn) e responde ao
   endpoint `/predict/eta`, além de `/health`.
 
@@ -56,13 +58,20 @@ docker compose up --build
 | Serviço | URL |
 |---|---|
 | backend-core | http://localhost:8080/api/v1/trips |
+| Swagger | http://localhost:8080/swagger-ui.html |
 | ai-engine | http://localhost:8000/docs |
 
-Frontend:
+Frontend (http://localhost:5173, com proxy de `/api` para o backend):
 ```bash
 cd smartroute-frontend
-npm install
+npm ci
 npm run dev
+```
+
+Backend sem Docker (PostgreSQL embarcado, dados descartados ao sair):
+```bash
+cd backend-core
+./mvnw spring-boot:test-run
 ```
 
 Retreinar o modelo:
@@ -71,7 +80,8 @@ cd ai-engine
 python generate_data.py && python train_model.py
 ```
 
-> As credenciais do `docker-compose.yml` são apenas para ambiente local.
+> As credenciais padrão do `docker-compose.yml` são apenas para ambiente local; para trocá-las, copie
+> `.env.example` para `.env`. Guia para desenvolvimento com agentes de IA em [`CLAUDE.md`](CLAUDE.md).
 
 ## 👤 Autor
 
