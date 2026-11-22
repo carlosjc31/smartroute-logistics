@@ -30,8 +30,9 @@ docker compose up --build
 
 # backend-core
 cd backend-core
-./mvnw test                      # todos os testes; usa PostgreSQL embarcado (zonky), sem Docker
+./mvnw test                      # unitários + contrato + PostgreSQL embarcado (zonky), sem Docker
 ./mvnw test -Dtest=TripTest      # um teste específico
+./mvnw verify                    # + integração *IT (Testcontainers/WireMock, exige Docker) + JaCoCo ≥ 80%
 ./mvnw spring-boot:test-run      # sobe a API com PostgreSQL embarcado (dados descartados ao sair)
 ./mvnw spring-boot:run           # perfil dev: requer Postgres em localhost:5432
 # Swagger: http://localhost:8080/swagger-ui.html · Health: /actuator/health
@@ -40,13 +41,16 @@ cd backend-core
 cd ai-engine
 uv pip install -r requirements.txt   # ou pip
 python main.py                       # http://localhost:8000/docs
+pip install -r requirements-dev.txt && pytest   # testes (API, contrato, qualidade do modelo)
 python generate_data.py && python train_model.py   # regera dataset sintético e modelo
 
 # frontend
 cd smartroute-frontend
 npm ci
 npm run dev                      # http://localhost:5173 (proxy de /api para localhost:8080)
+npm test                         # Vitest + Testing Library
 npm run lint && npm run build    # build roda o typecheck (tsc -b)
+npm run e2e                      # Playwright; exige backend no ar (E2E_API_URL, padrão localhost:8080)
 ```
 
 ## Arquitetura do backend (hexagonal)
@@ -93,7 +97,9 @@ Regras:
 - Campos em `snake_case` no JSON; mapeados em `adapters/ai/PredictionResponse` com `@JsonProperty`.
 - `predicted_arrival_hours` é **decimal**: converta para minutos (`Trip.estimateArrival`), nunca trunque.
 - Modelo indisponível → `503`. Entrada inválida → `422` (validação Pydantic).
-- Ao mudar o contrato, altere os dois lados no mesmo PR.
+- Ao mudar o contrato, altere os dois lados no mesmo PR. Os exemplos canônicos ficam em
+  `contracts/ai-engine/` e são testados pelos dois serviços (`AiEngineContractTest` e
+  `tests/test_contract.py`): atualize-os junto.
 
 Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`,
 `SPRING_DATASOURCE_PASSWORD`, `AI_ENGINE_URL`, `GEOCODING_URL`, `GEOCODING_USER_AGENT`,
@@ -115,6 +121,10 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
   referenciando a issue (`Closes #N`).
 - **PRs:** um PR por fase/etapa do roadmap, descrevendo como foi testado.
 - Correção de bug vem com teste que falharia antes da correção sempre que possível.
+- Testes: unitários em `*Test` (surefire); os que exigem Docker em `*IT` (failsafe, `./mvnw verify`).
+  No frontend, `*.test.tsx` ao lado do código, usando `src/test/utils.tsx` (`renderRoute`, `mockFetch`);
+  E2E em `e2e/`, simulando só a geocodificação.
+- O CI (`.github/workflows/ci.yml`) precisa passar antes do merge.
 - Java: Lombok só em entidades JPA; prefira `record` para DTOs e domínio.
 - Python: tipagem com Pydantic `Field` para validar entradas.
 
@@ -135,4 +145,3 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
 - `is_rainy` sempre 0 e `confidence_score` fixo: issues #47 e #49.
 - Distância em linha reta, não por estrada: issue #45.
 - Dataset de treino é sintético (`generate_data.py`).
-- Sem CI ainda: issue #27.

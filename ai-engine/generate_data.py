@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 
-def generate_logistic_dataset(n_samples=5000):
-    rng = np.random.default_rng(42)
+def build_dataset(n_samples=5000, seed=42):
+    """Gera viagens sintéticas com as regras de negócio do ETA (sem gravar em disco)."""
+    rng = np.random.default_rng(seed)
 
     distance = rng.uniform(10, 500, n_samples) # km
     weight = rng.uniform(1, 30, n_samples)     # toneladas
@@ -24,7 +25,7 @@ def generate_logistic_dataset(n_samples=5000):
     real_time = (base_time + weight_delay) * traffic_multiplier * weather_multiplier
     real_time += rng.normal(0, 0.2, n_samples) # Ruído de 12 min
 
-    df = pd.DataFrame({
+    return pd.DataFrame({
         'distance': distance,
         'weight': weight,
         'hour_of_day': hour_of_day,
@@ -32,6 +33,8 @@ def generate_logistic_dataset(n_samples=5000):
         'delivery_time_hours': real_time
     })
 
+def generate_logistic_dataset(n_samples=5000):
+    df = build_dataset(n_samples)
     df.to_csv('logistic_data.csv', index=False)
     print(f"Dataset com {n_samples} viagens gerado com sucesso!")
 

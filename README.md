@@ -11,6 +11,7 @@
 [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![CI](https://github.com/carlosjc31/smartroute-logistics/actions/workflows/ci.yml/badge.svg)](https://github.com/carlosjc31/smartroute-logistics/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 [Visão geral](#visão-geral) ·
@@ -199,13 +200,20 @@ python generate_data.py && python train_model.py
 
 ## Testes
 
-```bash
-# Backend: unitários, controller e integração com PostgreSQL embarcado (não precisa de Docker)
-cd backend-core && ./mvnw test
+Cada serviço tem sua suíte, e o [CI](.github/workflows/ci.yml) roda todas em cada pull request:
 
-# Frontend: lint, verificação de tipos e build
-cd smartroute-frontend && npm run lint && npm run build
-```
+| Camada | Ferramentas | Comando |
+|---|---|---|
+| Backend: unitários, controller e PostgreSQL embarcado | JUnit 5, Mockito, zonky | `cd backend-core && ./mvnw test` |
+| Backend: integração ponta a ponta | Testcontainers (PostgreSQL), WireMock | `./mvnw verify` (exige Docker) |
+| Backend: cobertura mínima de 80% em `domain/` e `application/` | JaCoCo | `./mvnw verify` |
+| ai-engine: API, validação, modelo ausente e qualidade do modelo | pytest, TestClient | `cd ai-engine && pip install -r requirements-dev.txt && pytest` |
+| Contrato backend ↔ ai-engine | exemplos em [`contracts/`](contracts) testados pelos dois lados | incluído nas suítes acima |
+| Frontend: componentes e cliente da API | Vitest, Testing Library | `cd smartroute-frontend && npm test` |
+| E2E: despacho → ETA → status → lista | Playwright | `npm run e2e` (com o backend no ar) |
+
+Para rodar o E2E localmente, suba o backend (`docker compose up` ou `./mvnw spring-boot:test-run`) e
+execute `npx playwright install chromium` uma vez antes de `npm run e2e`.
 
 ## Roadmap
 
@@ -216,7 +224,7 @@ A evolução do projeto está organizada em fases, acompanhadas pelas
 |---|---|---|
 | 0 | Fundação | Correções críticas, guia do repositório ✅ |
 | 1 | Arquitetura e API | Hexagonal, Flyway, resiliência, API completa, frontend em TypeScript ✅ |
-| 2 | Testes e CI | Testes de contrato, E2E, GitHub Actions |
+| 2 | Testes e CI | Testes de contrato, E2E, GitHub Actions ✅ |
 | 3 | Segurança e LGPD | OAuth2/Keycloak, perfis de acesso, varreduras de segurança, conformidade LGPD |
 | 4 | Domínio logístico | Multi-tenant, frota, motoristas, pedidos, múltiplas paradas, rastreamento |
 | 5 | Roteirização e ML | Rotas por estrada (OSRM), otimização (VRP), clima real, MLOps |

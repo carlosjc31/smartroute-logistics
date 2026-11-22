@@ -24,14 +24,16 @@ export function DispatchPage() {
 
   const dispatch = useMutation({
     mutationFn: async (values: DispatchForm) => {
-      const [origin, destination] = await Promise.all([geocode(values.origin), geocode(values.destination)])
+      const originName = values.origin.trim()
+      const destinationName = values.destination.trim()
+      const [origin, destination] = await Promise.all([geocode(originName), geocode(destinationName)])
       return createTrip({
         originLat: origin.lat,
         originLng: origin.lng,
         destLat: destination.lat,
         destLng: destination.lng,
-        originLabel: values.origin.trim(),
-        destinationLabel: values.destination.trim(),
+        originLabel: originName,
+        destinationLabel: destinationName,
         payloadWeight: Number.parseFloat(values.weight),
         departureTime: localInputToOffsetIso(values.departure),
       })
