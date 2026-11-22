@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Segredos / ambiente
+.env
+.env.*
+!.env.example
+
+# Editores / SO
+.idea/
+.DS_Store
