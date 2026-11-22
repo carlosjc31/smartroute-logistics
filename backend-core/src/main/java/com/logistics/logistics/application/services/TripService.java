@@ -29,11 +29,10 @@ public class TripService {
     entity.setDestLat(trip.destination().lat());
     entity.setDestLng(trip.destination().lng());
     entity.setPayloadWeight(trip.payloadWeight());
-    entity.setStatus(TripEntity.TripStatus.PENDING);
+    entity.setStatus(Trip.TripStatus.PENDING);
 
     entity.setDepartureTime(trip.departureTime());
-    Long predictedHours = prediction.predictedArrivalHours().longValue();
-    entity.setPredictedArrival(trip.departureTime().plusHours((predictedHours)));
+    entity.setPredictedArrival(trip.estimateArrival(prediction.predictedArrivalHours()));
 
     return repository.save(entity);
   }

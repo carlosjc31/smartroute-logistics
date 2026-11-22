@@ -9,11 +9,11 @@ public record PredictionResponse(
   @JsonProperty("predicted_arrival_hours")
   Double predictedArrivalHours,
 
-  @JsonProperty("cofidence_score")
-  Double confidence_score,
+  @JsonProperty("confidence_score")
+  Double confidenceScore,
 
   @JsonProperty("model_version")
-  String model_version,
+  String modelVersion,
 
   String status,
 

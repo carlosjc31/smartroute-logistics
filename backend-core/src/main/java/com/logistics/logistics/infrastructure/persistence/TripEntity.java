@@ -3,6 +3,7 @@ package com.logistics.logistics.infrastructure.persistence;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.logistics.logistics.domain.Trip.TripStatus;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -32,13 +33,6 @@ public class TripEntity {
 
     @Enumerated(EnumType.STRING)
     private TripStatus status;
-
-    public enum TripStatus {
-        PENDING,
-        IN_TRANSIT,
-        COMPLETED,
-        DELAYED
-    }
 
     private LocalDateTime predictedArrival;
     private LocalDateTime createdAt = LocalDateTime.now();

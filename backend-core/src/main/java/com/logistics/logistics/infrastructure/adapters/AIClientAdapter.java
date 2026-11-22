@@ -1,8 +1,8 @@
 package com.logistics.logistics.infrastructure.adapters;
 
-
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -13,36 +13,26 @@ import com.logistics.logistics.infrastructure.adapters.dto.PredictionResponse;
 public class AIClientAdapter {
   private final RestClient restClient;
 
-  public AIClientAdapter(RestClient.Builder builder) {
-    this.restClient = builder.baseUrl("http://ai-engine:8000").build();
+  public AIClientAdapter(RestClient.Builder builder, @Value("${ai-engine.url}") String aiEngineUrl) {
+    this.restClient = builder.baseUrl(aiEngineUrl).build();
   }
-  public PredictionResponse getETAPrediction(Trip trip) {
-    double dist = calculateDistance(
-          trip.origin().lat(), trip.origin().lng(),
-          trip.destination().lat(), trip.destination().lng()
-      );
 
+  public PredictionResponse getETAPrediction(Trip trip) {
     Map<String, Object> aiRequest = Map.of(
-      "distance", dist,
+      "distance", trip.distanceKm(),
       "weight", trip.payloadWeight(),
       "hour_of_day", trip.departureTime().getHour(),
-      "is_rainy", 0
+      "is_rainy", 0 // TODO(#47): clima real via Open-Meteo
     );
 
-    return restClient.post()
+    PredictionResponse response = restClient.post()
         .uri("/predict/eta")
         .body(aiRequest)
         .retrieve()
         .body(PredictionResponse.class);
-    }
 
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2){
-      double theta = lon1 - lon2;
-      double dist = Math.sin(Math.toRadians(lat1)) * Math.sin(Math.toRadians(lat2)) +
-        Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.cos(Math.toRadians(theta));
-
-      dist = Math.acos(dist);
-      dist = Math.toDegrees(dist);
-      return dist * 60 * 1.1515 * 1.609344;
-    }
+    if (response == null || response.predictedArrivalHours() == null)
+      throw new IllegalStateException("ai-engine retornou uma previsão vazia");
+    return response;
+  }
 }
