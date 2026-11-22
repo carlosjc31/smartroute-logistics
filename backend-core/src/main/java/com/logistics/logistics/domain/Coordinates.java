@@ -1,14 +1,12 @@
 package com.logistics.logistics.domain;
 
-import java.util.Objects;
-
 public record Coordinates(Double lat, Double lng) {
 
   private static final double EARTH_RADIUS_KM = 6371.0088;
 
   public Coordinates {
-    Objects.requireNonNull(lat, "Latitude é obrigatória");
-    Objects.requireNonNull(lng, "Longitude é obrigatória");
+    if (lat == null || lng == null)
+      throw new IllegalArgumentException("Latitude e longitude são obrigatórias");
     if (lat < -90 || lat > 90)
       throw new IllegalArgumentException("Latitude deve estar entre -90 e 90");
     if (lng < -180 || lng > 180)
