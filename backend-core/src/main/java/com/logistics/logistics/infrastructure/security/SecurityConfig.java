@@ -11,7 +11,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
@@ -42,7 +41,9 @@ public class SecurityConfig {
       throws Exception {
     ProblemDetailSecurityHandler problems = new ProblemDetailSecurityHandler(json);
     http
-        .csrf(AbstractHttpConfigurer::disable) // sem cookies de sessão: o token vai no header Authorization
+        // A API só autentica por header Authorization (o navegador não o envia sozinho), sem cookie de sessão,
+        // então CSRF não se aplica a /api/**. Fora dela a proteção segue ligada (defesa em profundidade).
+        .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .cors(cors -> cors.configurationSource(corsConfigurationSource(properties)))
         .authorizeHttpRequests(auth -> auth
