@@ -22,6 +22,8 @@
     <zonky.postgres.version>2.0.7</zonky.postgres.version>
     <wiremock.version>3.9.1</wiremock.version>
     <jacoco.version>0.8.12</jacoco.version>
+    <!-- Sobrescreve o 1.19.8 do Spring Boot: versões antigas usam a API Docker 1.32, recusada pelo Docker 29+ -->
+    <testcontainers.version>1.21.4</testcontainers.version>
     <!-- Cobertura mínima de linhas em domain/ e application/ (issue #21) -->
     <coverage.minimum>0.80</coverage.minimum>
   </properties>

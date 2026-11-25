@@ -28,6 +28,14 @@ jobs:
           cache: maven
       # Unitários, contrato, PostgreSQL embarcado, integração com Testcontainers (*IT) e cobertura JaCoCo
       - run: ./mvnw -B verify
+      # No CI há Docker: um *IT pulado (disabledWithoutDocker) significa integração não testada
+      - name: Garantir que nenhum teste de integração foi pulado
+        run: |
+          ls target/failsafe-reports/TEST-*IT.xml
+          if grep -L 'skipped="0"' target/failsafe-reports/TEST-*IT.xml | grep -q .; then
+            echo "::error::Testes *IT foram pulados; o Testcontainers não conseguiu usar o Docker"
+            exit 1
+          fi
       - if: always()
         uses: actions/upload-artifact@v4
         with:
