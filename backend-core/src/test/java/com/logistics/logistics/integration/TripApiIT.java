@@ -14,8 +14,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +29,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -40,10 +43,20 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 
 /**
- * Ponta a ponta no backend: HTTP → controller → caso de uso → PostgreSQL real (Testcontainers), com o
- * ai-engine e o Nominatim simulados pelo WireMock. Roda em {@code ./mvnw verify} (failsafe) e exige Docker;
+ * Ponta a ponta no backend: HTTP → segurança (JWT) → controller → caso de uso → PostgreSQL real
+ * (Testcontainers), com o ai-engine, o Nominatim e o JWKS do Keycloak simulados pelo WireMock. Os tokens são
+ * assinados por uma chave RSA gerada no teste e validados de verdade (assinatura, issuer, audience). Roda em {@code ./mvnw verify} (failsafe) e exige Docker;
  * sem Docker o teste é ignorado.
  */
 @Testcontainers(disabledWithoutDocker = true)
@@ -55,6 +68,11 @@ class TripApiIT {
   static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:15-alpine");
 
   static final WireMockServer EXTERNAL = new WireMockServer(wireMockConfig().dynamicPort());
+  static final String REALM_PATH = "/realms/smartroute";
+  static final String JWKS_PATH = REALM_PATH + "/protocol/openid-connect/certs";
+  static final String AI_ENGINE_TOKEN = "it-service-token";
+  static final RSAKey SIGNING_KEY = rsaKey("it-key");
+  static final RSAKey FOREIGN_KEY = rsaKey("it-key");
 
   static {
     EXTERNAL.start();
@@ -62,6 +80,9 @@ class TripApiIT {
 
   @DynamicPropertySource
   static void externalServices(DynamicPropertyRegistry registry) {
+    registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> EXTERNAL.baseUrl() + REALM_PATH);
+    registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> EXTERNAL.baseUrl() + JWKS_PATH);
+    registry.add("ai-engine.token", () -> AI_ENGINE_TOKEN);
     registry.add("ai-engine.url", EXTERNAL::baseUrl);
     registry.add("geocoding.base-url", EXTERNAL::baseUrl);
     registry.add("geocoding.min-interval", () -> "0s");
@@ -81,10 +102,17 @@ class TripApiIT {
   @BeforeEach
   void setUp() {
     EXTERNAL.resetAll();
-    api = RestClient.builder()
+    EXTERNAL.stubFor(get(JWKS_PATH).willReturn(okJson(new JWKSet(SIGNING_KEY.toPublicJWK()).toString())));
+    api = client(token(SIGNING_KEY, "ana.despacho", "smartroute-api", "DISPATCHER"));
+  }
+
+  private RestClient client(String bearer) {
+    RestClient.Builder builder = RestClient.builder()
         .baseUrl("http://localhost:" + port + "/api/v1")
-        .requestFactory(new JdkClientHttpRequestFactory())
-        .build();
+        .requestFactory(new JdkClientHttpRequestFactory());
+    if (bearer != null)
+      builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + bearer);
+    return builder.build();
   }
 
   @Test
@@ -94,6 +122,7 @@ class TripApiIT {
         .willReturn(okJson("""
             [{"lat": "-22.9056", "lon": "-47.0608", "display_name": "Campinas, São Paulo, Brasil"}]""")));
     EXTERNAL.stubFor(post("/predict/eta")
+        .withHeader(HttpHeaders.AUTHORIZATION, equalTo("Bearer " + AI_ENGINE_TOKEN))
         .withRequestBody(equalToJson("{\"hour_of_day\": 8, \"weight\": 12.0, \"is_rainy\": 0}", true, true))
         .willReturn(okJson(Files.readString(Path.of("..", "contracts", "ai-engine", "predict-eta.response.json")))));
 
@@ -129,6 +158,63 @@ class TripApiIT {
         .isEqualTo("COMPLETED");
     Map<String, Object> page = api.get().uri("/trips?status=COMPLETED").retrieve().body(MAP);
     assertThat((List<Map<String, Object>>) page.get("items")).extracting(item -> item.get("id")).contains((Object) id);
+
+    // Auditoria: quem fez cada passo, legível só pelo ADMIN
+    RestClient admin = client(token(SIGNING_KEY, "bruno.admin", "smartroute-api", "ADMIN"));
+    Map<String, Object> audit = admin.get().uri("/audit/trips/{id}", id).retrieve().body(MAP);
+    List<Map<String, Object>> history = (List<Map<String, Object>>) audit.get("items");
+    assertThat(history).extracting(entry -> entry.get("action"))
+        .containsExactly("TRIP_STATUS_CHANGED", "TRIP_STATUS_CHANGED", "TRIP_CREATED");
+    assertThat(history).extracting(entry -> entry.get("actor")).containsOnly("ana.despacho");
+    assertThat(history.get(0).get("after").toString()).contains("COMPLETED").doesNotContain("Campinas");
+    assertThat(status(api.get().uri("/audit/trips/{id}", id))).isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
+  void rejectsMissingForgedOrMisaddressedTokens() {
+    assertThat(status(client(null).get().uri("/trips"))).isEqualTo(HttpStatus.UNAUTHORIZED);
+    // Mesmo kid, chave diferente: assinatura inválida
+    assertThat(status(client(token(FOREIGN_KEY, "eve", "smartroute-api", "ADMIN")).get().uri("/trips")))
+        .isEqualTo(HttpStatus.UNAUTHORIZED);
+    // Token válido, mas emitido para outro serviço
+    assertThat(status(client(token(SIGNING_KEY, "eve", "outro-servico", "ADMIN")).get().uri("/trips")))
+        .isEqualTo(HttpStatus.UNAUTHORIZED);
+    // Autenticado, mas sem perfil de despacho
+    assertThat(status(client(token(SIGNING_KEY, "carlos.motorista", "smartroute-api", "DRIVER")).get().uri("/trips")))
+        .isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(status(client(null).get().uri("http://localhost:" + port + "/actuator/health"))).isEqualTo(HttpStatus.OK);
+  }
+
+  private static HttpStatus status(RestClient.RequestHeadersSpec<?> request) {
+    return request.exchange((req, res) -> HttpStatus.valueOf(res.getStatusCode().value()));
+  }
+
+  private static String token(RSAKey key, String username, String audience, String... roles) {
+    Instant now = Instant.now();
+    JWTClaimsSet claims = new JWTClaimsSet.Builder()
+        .issuer(EXTERNAL.baseUrl() + REALM_PATH)
+        .subject(username + "-id")
+        .audience(audience)
+        .claim("preferred_username", username)
+        .claim("realm_access", Map.of("roles", List.of(roles)))
+        .issueTime(Date.from(now))
+        .expirationTime(Date.from(now.plusSeconds(300)))
+        .build();
+    try {
+      SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(key.getKeyID()).build(), claims);
+      jwt.sign(new RSASSASigner(key));
+      return jwt.serialize();
+    } catch (JOSEException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static RSAKey rsaKey(String kid) {
+    try {
+      return new RSAKeyGenerator(2048).keyID(kid).generate();
+    } catch (JOSEException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   @Test

@@ -1,61 +1,128 @@
+# Ambiente local completo. Segredos vêm do .env (copie de .env.example): nenhum tem valor padrão aqui.
+# Endereços no host: frontend (npm run dev) 5173 · API 8080 · Keycloak 8180 · Grafana 3000.
+# O ai-engine e o banco não publicam porta no host (só a rede interna os alcança).
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
 services:
   db:
-    image: postgres:15-alpine
+    <<: *hardening
+    image: postgres:15.10-alpine
     container_name: smart-logistics-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logistics_db}
       POSTGRES_USER: ${POSTGRES_USER:-user_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password_secure}
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+    # Para acessar do host (psql, IDE), descomente. Em produção, nunca exponha o banco.
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user_admin} -d ${POSTGRES_DB:-logistics_db}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # AI Engine
+  keycloak:
+    <<: *hardening
+    image: quay.io/keycloak/keycloak:26.0.7
+    container_name: smart-logistics-keycloak
+    # start-dev: HTTP e banco H2 interno, só para desenvolvimento. Produção: "start" com HTTPS e Postgres.
+    command: ["start-dev", "--import-realm", "--http-port=8080"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-kc-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Defina KEYCLOAK_ADMIN_PASSWORD no .env}
+      # Senha dos usuários de desenvolvimento do realm (admin.dev, despacho.dev, motorista.dev)
+      KEYCLOAK_DEV_USERS_PASSWORD: ${KEYCLOAK_DEV_USERS_PASSWORD:?Defina KEYCLOAK_DEV_USERS_PASSWORD no .env}
+      # Tokens sempre com o endereço público no "iss", mesmo quando o Keycloak é acessado pela rede interna
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./infra/keycloak/smartroute-realm.json:/opt/keycloak/data/import/smartroute-realm.json:ro
+    ports:
+      - "8180:8080"
+    healthcheck:
+      # A imagem não tem curl: consulta /health/ready (porta de gerenciamento 9000) via /dev/tcp do bash
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
   ai-engine:
+    <<: *hardening
     build: ./ai-engine
+    image: smartroute/ai-engine:local
     container_name: ai-engine-service
     environment:
-      - MODEL_MODE=development
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
+      SERVICE_TOKEN: ${AI_ENGINE_TOKEN:?Defina AI_ENGINE_TOKEN no .env}
+    # Sem "ports": só o backend-core, pela rede interna, chama o ai-engine
+    expose:
+      - "8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
 
-  # Backend Core
   backend-core:
+    <<: *hardening
     build: ./backend-core
+    image: smartroute/backend-core:local
     container_name: backend-core-service
     environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB:-logistics_db}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-user_admin}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-password_secure}
-      - AI_ENGINE_URL=http://ai-engine:8000
-      - GEOCODING_USER_AGENT=${GEOCODING_USER_AGENT:-SmartRouteLogistics/0.1 (+https://github.com/carlosjc31/smartroute-logistics)}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-logistics_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-user_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+      AI_ENGINE_URL: http://ai-engine:8000
+      AI_ENGINE_TOKEN: ${AI_ENGINE_TOKEN:?Defina AI_ENGINE_TOKEN no .env}
+      OIDC_ISSUER_URI: http://localhost:8180/realms/smartroute
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/smartroute/protocol/openid-connect/certs
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:4173}
+      GEOCODING_USER_AGENT: ${GEOCODING_USER_AGENT:-SmartRouteLogistics/0.1 (+https://github.com/carlosjc31/smartroute-logistics)}
     ports:
       - "8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
     depends_on:
       db:
         condition: service_healthy
       ai-engine:
+        condition: service_healthy
+      keycloak:
         condition: service_started
 
   grafana:
-    image: grafana/grafana-oss:latest
+    <<: *hardening
+    image: grafana/grafana-oss:11.3.1
     container_name: smart-logistics-grafana
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Defina GRAFANA_ADMIN_PASSWORD no .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
     depends_on:
       - db
+
+volumes:
+  db-data:
+  grafana-data:
 
 networks:
   default:
     name: smart-logistics-network
 
-# docker exec -it smart-logistics-db psql -U user_admin -d logistics_db
+# docker exec -it smart-logistics-db psql -U "$POSTGRES_USER" -d logistics_db
