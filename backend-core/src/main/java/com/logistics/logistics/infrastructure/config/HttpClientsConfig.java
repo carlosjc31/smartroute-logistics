@@ -19,6 +19,7 @@ public class HttpClientsConfig {
   RestClient aiEngineRestClient(RestClient.Builder builder, AiEngineProperties properties) {
     return builder.clone()
         .baseUrl(properties.url())
+        .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + properties.token())
         .requestFactory(requestFactory(properties.connectTimeout(), properties.readTimeout()))
         .build();
   }

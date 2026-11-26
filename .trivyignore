@@ -1,0 +1,8 @@
+# Exceções do Trivy. Cada entrada precisa de justificativa, issue e data de expiração (exp:).
+# Ao expirar, o Trivy volta a reportar a CVE e o CI falha: revise ou corrija antes disso.
+
+# spring-webmvc 6.2.x: correção só no Spring Framework 7 / Spring Boot 4 (migração na issue #69).
+# RCE via XsltView: a API só serve JSON e não usa XsltView nem views server-side.
+CVE-2026-47884 exp:2027-02-28
+# Corrupção de stream SSE: a API não expõe Server-Sent Events (SseEmitter / text/event-stream).
+CVE-2026-47890 exp:2027-02-28

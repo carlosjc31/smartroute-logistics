@@ -44,13 +44,17 @@ duração da viagem com um modelo de machine learning e registra a viagem com a 
 - **Painel web.** Novo despacho, lista de viagens com filtros e paginação, e detalhe da viagem.
 - **API documentada.** OpenAPI/Swagger e erros padronizados no formato
   [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807).
+- **Segurança.** Login OIDC no Keycloak (PKCE), perfis de acesso, auditoria imutável, CORS restrito,
+  rate limit e varreduras de segurança no CI. Detalhes em [`docs/seguranca.md`](docs/seguranca.md).
 
 ## Arquitetura
 
 ```mermaid
 flowchart LR
-    UI["Frontend<br/>React · TypeScript"] -- REST --> API["backend-core<br/>Java 21 · Spring Boot"]
-    API -- "POST /predict/eta" --> AI["ai-engine<br/>Python · FastAPI"]
+    UI["Frontend<br/>React · TypeScript"] -- "REST + JWT" --> API["backend-core<br/>Java 21 · Spring Boot"]
+    UI -- "login OIDC (PKCE)" --> KC["Keycloak"]
+    API -- "chaves (JWKS)" --> KC
+    API -- "POST /predict/eta (token de serviço)" --> AI["ai-engine<br/>Python · FastAPI"]
     API -- JPA / Flyway --> DB[("PostgreSQL 15")]
     API -- "geocodificação (cache)" --> OSM["OpenStreetMap<br/>Nominatim"]
 ```
@@ -82,7 +86,7 @@ infrastructure/  Adapters: REST, JPA, cliente do ai-engine, Nominatim, configura
 ```bash
 git clone https://github.com/carlosjc31/smartroute-logistics.git
 cd smartroute-logistics
-cp .env.example .env        # opcional: ajuste credenciais e configurações
+cp .env.example .env        # obrigatório: troque as senhas e tokens
 docker compose up --build
 ```
 
@@ -100,8 +104,12 @@ npm run dev
 | API (backend-core) | http://localhost:8080/api/v1 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Health check | http://localhost:8080/actuator/health |
-| ai-engine (docs) | http://localhost:8000/docs |
+| Keycloak (console e login) | http://localhost:8180 |
 | Grafana | http://localhost:3000 |
+
+Entre no painel com `despacho.dev` ou `admin.dev`, usando a senha definida em
+`KEYCLOAK_DEV_USERS_PASSWORD`. O ai-engine e o PostgreSQL não ficam expostos no host: só o
+backend-core os acessa, pela rede interna.
 
 ### Backend sem Docker
 
@@ -109,6 +117,7 @@ O backend pode rodar com um PostgreSQL embarcado, útil para desenvolvimento rá
 descartados ao encerrar.
 
 ```bash
+docker compose up -d keycloak   # a API exige login; o Keycloak emite os tokens
 cd backend-core
 ./mvnw spring-boot:test-run
 ```
@@ -123,16 +132,22 @@ As variáveis de ambiente ficam documentadas em [`.env.example`](.env.example). 
 | `SPRING_DATASOURCE_URL` | URL JDBC do PostgreSQL | `jdbc:postgresql://localhost:5432/logistics_db` |
 | `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` | Credenciais do banco | valores locais de desenvolvimento |
 | `AI_ENGINE_URL` | Endereço do ai-engine | `http://localhost:8000` |
+| `AI_ENGINE_TOKEN` | Token de serviço backend → ai-engine (`SERVICE_TOKEN` no ai-engine) | obrigatório no `.env` |
+| `OIDC_ISSUER_URI` / `OIDC_JWK_SET_URI` | Emissor dos tokens (Keycloak) e de onde vêm as chaves | `http://localhost:8180/realms/smartroute` |
+| `CORS_ALLOWED_ORIGINS` | Origens do frontend autorizadas | `http://localhost:5173,http://localhost:4173` |
+| `RATE_LIMIT_CAPACITY` | Requisições por minuto por usuário/IP | `120` |
 | `GEOCODING_USER_AGENT` | Identificação exigida pelo Nominatim | `SmartRouteLogistics/0.1 (...)` |
 | `GEOCODING_COUNTRY_CODES` | Países aceitos na busca de cidades | `br` |
 | `VITE_API_URL` | Origem da API para o build do frontend | mesma origem |
+| `VITE_OIDC_AUTHORITY` / `VITE_OIDC_CLIENT_ID` | Realm e client do login no frontend | `http://localhost:8180/realms/smartroute`, `smartroute-frontend` |
 
-No perfil `prod`, nenhuma credencial tem valor padrão: a aplicação não inicia se alguma variável
-obrigatória estiver ausente.
+Nenhuma senha tem valor padrão versionado: o `docker compose` e o perfil `prod` se recusam a subir se
+faltar alguma. Em produção, use um cofre de segredos ([`docs/seguranca.md`](docs/seguranca.md#segredos-30)).
 
 ## API
 
-Base: `/api/v1`. A documentação interativa completa está no Swagger UI.
+Base: `/api/v1`. A documentação interativa completa está no Swagger UI. Toda rota exige
+`Authorization: Bearer <token>` do Keycloak, com perfil `DISPATCHER` ou `ADMIN`.
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -141,12 +156,15 @@ Base: `/api/v1`. A documentação interativa completa está no Swagger UI.
 | `GET` | `/trips/{id}` | Detalha uma viagem |
 | `PATCH` | `/trips/{id}/status` | Avança o status da viagem |
 | `GET` | `/geocode?q=` | Converte o nome de uma cidade em coordenadas |
+| `GET` | `/audit/trips/{id}` | Histórico de alterações da viagem: quem, quando, antes/depois (só `ADMIN`) |
 
 <details>
 <summary>Exemplo: criar uma viagem (valores ilustrativos)</summary>
 
 ```bash
+# TOKEN: access token do Keycloak (no painel logado, fica no sessionStorage)
 curl -X POST http://localhost:8080/api/v1/trips \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "originLat": -23.5505, "originLng": -46.6333, "originLabel": "São Paulo",
@@ -204,16 +222,17 @@ Cada serviço tem sua suíte, e o [CI](.github/workflows/ci.yml) roda todas em c
 
 | Camada | Ferramentas | Comando |
 |---|---|---|
-| Backend: unitários, controller e PostgreSQL embarcado | JUnit 5, Mockito, zonky | `cd backend-core && ./mvnw test` |
-| Backend: integração ponta a ponta | Testcontainers (PostgreSQL), WireMock | `./mvnw verify` (exige Docker) |
+| Backend: unitários, controller, segurança e PostgreSQL embarcado | JUnit 5, Mockito, spring-security-test, zonky | `cd backend-core && ./mvnw test` |
+| Backend: integração ponta a ponta com JWT real | Testcontainers (PostgreSQL), WireMock (ai-engine, Nominatim, JWKS) | `./mvnw verify` (exige Docker) |
 | Backend: cobertura mínima de 80% em `domain/` e `application/` | JaCoCo | `./mvnw verify` |
-| ai-engine: API, validação, modelo ausente e qualidade do modelo | pytest, TestClient | `cd ai-engine && pip install -r requirements-dev.txt && pytest` |
+| ai-engine: API, token de serviço, hash do modelo e qualidade do modelo | pytest, TestClient | `cd ai-engine && pip install -r requirements-dev.txt && pytest` |
 | Contrato backend ↔ ai-engine | exemplos em [`contracts/`](contracts) testados pelos dois lados | incluído nas suítes acima |
 | Frontend: componentes e cliente da API | Vitest, Testing Library | `cd smartroute-frontend && npm test` |
-| E2E: despacho → ETA → status → lista | Playwright | `npm run e2e` (com o backend no ar) |
+| E2E: login → despacho → ETA → status → lista → logout | Playwright | `npm run e2e` (com o compose no ar) |
+| Segurança: segredos, CVEs, SAST, DAST | gitleaks, Trivy, CodeQL, OWASP ZAP | [workflow `security.yml`](.github/workflows/security.yml) |
 
-Para rodar o E2E localmente, suba o backend (`docker compose up` ou `./mvnw spring-boot:test-run`) e
-execute `npx playwright install chromium` uma vez antes de `npm run e2e`.
+Para rodar o E2E localmente, suba o compose (`docker compose up`), execute
+`npx playwright install chromium` uma vez e rode `E2E_PASSWORD=<KEYCLOAK_DEV_USERS_PASSWORD> npm run e2e`.
 
 ## Roadmap
 
@@ -225,7 +244,7 @@ A evolução do projeto está organizada em fases, acompanhadas pelas
 | 0 | Fundação | Correções críticas, guia do repositório ✅ |
 | 1 | Arquitetura e API | Hexagonal, Flyway, resiliência, API completa, frontend em TypeScript ✅ |
 | 2 | Testes e CI | Testes de contrato, E2E, GitHub Actions ✅ |
-| 3 | Segurança e LGPD | OAuth2/Keycloak, perfis de acesso, varreduras de segurança, conformidade LGPD |
+| 3 | Segurança e LGPD | OAuth2/Keycloak, perfis de acesso, auditoria, varreduras de segurança ✅ · LGPD em andamento |
 | 4 | Domínio logístico | Multi-tenant, frota, motoristas, pedidos, múltiplas paradas, rastreamento |
 | 5 | Roteirização e ML | Rotas por estrada (OSRM), otimização (VRP), clima real, MLOps |
 | 6 | Agentes de IA | Copiloto do despachante, agente de exceções, servidor MCP |
@@ -243,9 +262,11 @@ também orienta agentes de IA que trabalham no repositório.
 
 ## Segurança
 
-As credenciais padrão do `docker-compose.yml` servem apenas para desenvolvimento local. Nunca versione
-arquivos `.env` nem dados reais de clientes ou motoristas. Para relatar uma vulnerabilidade, entre em
-contato diretamente com o mantenedor em vez de abrir uma issue pública.
+Autenticação, perfis, segredos, hardening e varreduras estão descritos em
+[`docs/seguranca.md`](docs/seguranca.md). O mapeamento de dados pessoais (LGPD) fica em
+[`docs/lgpd.md`](docs/lgpd.md). Nunca versione arquivos `.env` nem dados reais de clientes ou
+motoristas. Para relatar uma vulnerabilidade, entre em contato diretamente com o mantenedor em vez de
+abrir uma issue pública.
 
 ## Licença
 

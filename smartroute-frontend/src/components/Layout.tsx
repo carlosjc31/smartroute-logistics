@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router'
+import { UserMenu } from '../auth/UserMenu'
 
 export function Layout() {
   return (
@@ -9,6 +10,7 @@ export function Layout() {
           <NavLink to="/" end>Novo despacho</NavLink>
           <NavLink to="/trips">Viagens</NavLink>
         </nav>
+        <UserMenu />
       </header>
       <main className="content">
         <Outlet />
