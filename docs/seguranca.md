@@ -95,6 +95,11 @@ seção `users` do realm** e crie os usuários pelo console ou por federação (
 As varreduras do Trivy e do CodeQL também rodam toda segunda-feira, porque CVEs novas aparecem mesmo
 sem mudança no código.
 
+Uma CVE só pode ser aceita no `.trivyignore` se o código vulnerável não for usado. A entrada precisa de
+justificativa, de uma issue com a correção definitiva e de uma data de expiração (`exp:`). Quando a data
+vence, o Trivy volta a bloquear o CI. Hoje há duas exceções no `spring-webmvc` 6.2.x (XsltView e SSE),
+que dependem da migração para o Spring Boot 4 (#69).
+
 ## Auditoria (#35)
 
 Criações e mudanças de status de viagens geram um registro em `audit_log` na mesma transação: ator
