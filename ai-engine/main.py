@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import joblib
@@ -6,11 +9,14 @@ import uvicorn
 
 app = FastAPI(title="Smartroute AI Engine", version="1.0.0")
 
-# Running the model
+# Caminho relativo a este arquivo, para não depender do diretório de execução.
+# MODEL_PATH permite apontar outro artefato (sempre gerado pelo próprio pipeline: ver issue #31).
+MODEL_PATH = Path(os.getenv("MODEL_PATH", Path(__file__).parent / "delivery_model.pkl"))
+
 model = None
 try:
-    model = joblib.load("delivery_model.pkl")
-    print("[ALCHEMIST]: Modelo RandomForest carregado e operacional.")
+    model = joblib.load(MODEL_PATH)
+    print(f"[ALCHEMIST]: Modelo RandomForest carregado de {MODEL_PATH}.")
 except Exception as e:
     print(f"[ALCHEMIST]: Falha ao carregar o modelo: Erro:{e}")
 

@@ -1,0 +1,16 @@
+import { defineConfig, mergeConfig } from 'vitest/config'
+import viteConfig from './vite.config'
+
+export default defineConfig((env) =>
+  mergeConfig(viteConfig(env), {
+    test: {
+      environment: 'jsdom',
+      setupFiles: ['./src/test/setup.ts'],
+      include: ['src/**/*.test.{ts,tsx}'],
+      // Fuso fixo: as datas enviadas ao backend levam o offset do navegador
+      env: { TZ: 'America/Sao_Paulo' },
+      restoreMocks: true,
+      coverage: { include: ['src/**'], exclude: ['src/test/**', 'src/main.tsx'] },
+    },
+  }),
+)

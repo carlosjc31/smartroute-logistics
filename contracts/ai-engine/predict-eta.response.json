@@ -1,0 +1,9 @@
+{
+  "predicted_arrival_hours": 4.92,
+  "confidence_score": 0.89,
+  "model_version": "v1.0-random-forest",
+  "status": "success",
+  "metadata": {
+    "traffic_impact": "High"
+  }
+}
