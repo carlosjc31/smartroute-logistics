@@ -43,6 +43,13 @@ a {
   border-bottom: 1px solid var(--border);
 }
 
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
 .brand {
   font-weight: 700;
 }

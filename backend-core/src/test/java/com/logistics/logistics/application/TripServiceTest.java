@@ -18,7 +18,10 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.logistics.logistics.application.audit.AuditAction;
+import com.logistics.logistics.application.audit.AuditEntry;
 import com.logistics.logistics.application.exception.EtaPredictionUnavailableException;
+import com.logistics.logistics.application.service.AuditService;
 import com.logistics.logistics.application.exception.TripNotFoundException;
 import com.logistics.logistics.application.port.out.EtaPredictionPort;
 import com.logistics.logistics.application.port.out.TripRepositoryPort;
@@ -39,11 +42,13 @@ class TripServiceTest {
 
   private final InMemoryTrips repository = new InMemoryTrips();
   private final StubEta eta = new StubEta();
+  private final AuditServiceTest.InMemoryAuditLog auditLog = new AuditServiceTest.InMemoryAuditLog();
   private TripService service;
 
   @BeforeEach
   void setUp() {
-    service = new TripService(repository, eta, Clock.fixed(NOW, ZoneOffset.UTC));
+    Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+    service = new TripService(repository, eta, new AuditService(auditLog, () -> "ana.despacho", clock), clock);
   }
 
   private CreateTripCommand command() {
@@ -84,6 +89,33 @@ class TripServiceTest {
 
     assertThat(done.status()).isEqualTo(TripStatus.COMPLETED);
     assertThat(done.actualArrival().toInstant()).isEqualTo(NOW);
+  }
+
+  @Test
+  void auditsCreationAndEveryStatusChange() {
+    eta.next = new EtaPrediction(5.0, null, "v1", EtaSource.MODEL);
+    Trip trip = service.createTrip(command());
+    service.updateStatus(trip.id(), TripStatus.IN_TRANSIT);
+
+    List<AuditEntry> history = auditLog.entries;
+    assertThat(history).extracting(AuditEntry::action)
+        .containsExactly(AuditAction.TRIP_CREATED, AuditAction.TRIP_STATUS_CHANGED);
+    assertThat(history).allSatisfy(entry -> {
+      assertThat(entry.actor()).isEqualTo("ana.despacho");
+      assertThat(entry.entityId()).isEqualTo(trip.id());
+    });
+    assertThat(history.get(0).before()).isNull();
+    assertThat(history.get(1).before()).containsEntry("status", "PENDING");
+    assertThat(history.get(1).after()).containsEntry("status", "IN_TRANSIT");
+  }
+
+  @Test
+  void rejectedTransitionIsNotAudited() {
+    eta.next = new EtaPrediction(5.0, null, "v1", EtaSource.MODEL);
+    UUID id = service.createTrip(command()).id();
+
+    assertThatThrownBy(() -> service.updateStatus(id, TripStatus.COMPLETED));
+    assertThat(auditLog.entries).hasSize(1);
   }
 
   @Test

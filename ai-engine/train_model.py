@@ -1,3 +1,5 @@
+import hashlib
+from pathlib import Path
 import pandas as pd
 import joblib
 from sklearn.model_selection import train_test_split
@@ -21,7 +23,10 @@ def train():
     print(f"Erro Médio: {round(error * 60, 2)} minutos.")
 
     joblib.dump(model, 'delivery_model.pkl')
-    print("Modelo salvo como 'delivery_model.pkl'")
+    # O main.py só carrega o modelo se o hash conferir (proteção contra artefato adulterado, issue #31)
+    digest = hashlib.sha256(Path('delivery_model.pkl').read_bytes()).hexdigest()
+    Path('delivery_model.pkl.sha256').write_text(f"{digest}  delivery_model.pkl\n")
+    print(f"Modelo salvo como 'delivery_model.pkl' (sha256 {digest})")
 
 if __name__ == "__main__":
     train()

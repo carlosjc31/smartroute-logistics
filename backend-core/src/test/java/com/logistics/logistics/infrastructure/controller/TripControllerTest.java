@@ -18,14 +18,21 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.web.client.ResourceAccessException;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.logistics.logistics.application.PageResult;
+import com.logistics.logistics.application.exception.GeocodingUnavailableException;
 import com.logistics.logistics.application.exception.LocationNotFoundException;
 import com.logistics.logistics.application.exception.TripNotFoundException;
 import com.logistics.logistics.application.service.CreateTripCommand;
@@ -38,8 +45,12 @@ import com.logistics.logistics.domain.GeoLocation;
 import com.logistics.logistics.domain.Trip;
 import com.logistics.logistics.domain.TripStatus;
 import com.logistics.logistics.domain.exception.InvalidStatusTransitionException;
+import com.logistics.logistics.infrastructure.security.SecurityConfig;
 
 @WebMvcTest({TripController.class, GeocodingController.class})
+@Import(SecurityConfig.class)
+@WithMockUser(roles = "DISPATCHER")
+@ExtendWith(OutputCaptureExtension.class)
 class TripControllerTest {
 
   private static final Trip TRIP = Trip.create(new Coordinates(-23.55, -46.63), new Coordinates(-22.90, -43.17),
@@ -149,5 +160,16 @@ class TripControllerTest {
     when(geocodingService.geocode("Xyz")).thenThrow(new LocationNotFoundException("Xyz"));
 
     mvc.perform(get("/api/v1/geocode").param("q", "Xyz")).andExpect(status().isNotFound());
+  }
+
+  @Test
+  void geocodingOutageDoesNotLogTheSearchedAddress(CapturedOutput output) throws Exception {
+    String address = "Rua das Acácias 123, Campinas";
+    when(geocodingService.geocode(address)).thenThrow(new GeocodingUnavailableException("Falha ao consultar",
+        new ResourceAccessException("I/O error on GET request for \"https://nominatim/search?q=" + address + "\"")));
+
+    mvc.perform(get("/api/v1/geocode").param("q", address)).andExpect(status().isServiceUnavailable());
+
+    assertThat(output).contains("Geocodificação indisponível").doesNotContain("Acácias");
   }
 }

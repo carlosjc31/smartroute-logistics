@@ -45,7 +45,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @ExceptionHandler(GeocodingUnavailableException.class)
   ProblemDetail handleGeocodingUnavailable(GeocodingUnavailableException e) {
-    log.warn("Geocodificação indisponível", e);
+    // Só o tipo da causa: a mensagem do RestClient traz a URL com o endereço buscado (dado pessoal, LGPD)
+    log.warn("Geocodificação indisponível: {}", e.getCause() == null ? "sem causa" : e.getCause().getClass().getName());
     return problem(HttpStatus.SERVICE_UNAVAILABLE, "Serviço indisponível",
         "O serviço de geocodificação não respondeu. Tente novamente em instantes.");
   }

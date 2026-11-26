@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.logistics.logistics.application.PageResult;
+import com.logistics.logistics.application.audit.AuditAction;
 import com.logistics.logistics.application.exception.EtaPredictionUnavailableException;
 import com.logistics.logistics.application.exception.TripNotFoundException;
 import com.logistics.logistics.application.port.out.EtaPredictionPort;
@@ -26,11 +27,13 @@ public class TripService {
 
   private final TripRepositoryPort repository;
   private final EtaPredictionPort etaPrediction;
+  private final AuditService audit;
   private final Clock clock;
 
-  public TripService(TripRepositoryPort repository, EtaPredictionPort etaPrediction, Clock clock) {
+  public TripService(TripRepositoryPort repository, EtaPredictionPort etaPrediction, AuditService audit, Clock clock) {
     this.repository = repository;
     this.etaPrediction = etaPrediction;
+    this.audit = audit;
     this.clock = clock;
   }
 
@@ -38,7 +41,9 @@ public class TripService {
   public Trip createTrip(CreateTripCommand command) {
     Trip trip = Trip.create(command.origin(), command.destination(), command.originLabel(),
         command.destinationLabel(), command.payloadWeight(), command.departureTime(), OffsetDateTime.now(clock));
-    return repository.save(trip.withPrediction(predict(trip)));
+    Trip saved = repository.save(trip.withPrediction(predict(trip)));
+    audit.recordTripChange(AuditAction.TRIP_CREATED, null, saved);
+    return saved;
   }
 
   @Transactional(readOnly = true)
@@ -53,8 +58,10 @@ public class TripService {
 
   @Transactional
   public Trip updateStatus(UUID id, TripStatus target) {
-    Trip updated = getTrip(id).transitionTo(target, OffsetDateTime.now(clock));
-    return repository.save(updated);
+    Trip current = getTrip(id);
+    Trip saved = repository.save(current.transitionTo(target, OffsetDateTime.now(clock)));
+    audit.recordTripChange(AuditAction.TRIP_STATUS_CHANGED, current, saved);
+    return saved;
   }
 
   private EtaPrediction predict(Trip trip) {

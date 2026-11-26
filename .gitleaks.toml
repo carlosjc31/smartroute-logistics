@@ -1,0 +1,15 @@
+# Regras padrão do gitleaks + exceções para valores de exemplo/teste, que nunca são segredos reais.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders de desenvolvimento e tokens de teste"
+regexes = [
+  '''troque-[a-z-]+''',
+  '''password_secure''',
+  '''dev-local-token''',
+  '''(it|test)-service-token''',
+]
+paths = [
+  '''\.env\.example$''',
+]
