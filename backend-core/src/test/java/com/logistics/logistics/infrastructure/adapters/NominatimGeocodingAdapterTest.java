@@ -14,6 +14,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -32,6 +33,7 @@ class NominatimGeocodingAdapterTest {
         new GeocodingProperties("http://nominatim", "test-agent", countryCodes, Duration.ZERO, null, null));
   }
 
+  // @req GEO-001
   @Test
   void mapsFirstPlaceAndRestrictsCountry() {
     server.expect(requestTo(Matchers.startsWith("http://nominatim/search")))
@@ -51,6 +53,7 @@ class NominatimGeocodingAdapterTest {
     server.verify();
   }
 
+  // @req GEO-001
   @Test
   void omitsCountryFilterWhenBlank() {
     server.expect(requestTo(Matchers.not(Matchers.containsString("countrycodes"))))
@@ -60,6 +63,23 @@ class NominatimGeocodingAdapterTest {
     server.verify();
   }
 
+  // @req GEO-004
+  @Test
+  void waitsTheMinimumIntervalBetweenCalls() {
+    server.expect(ExpectedCount.twice(), requestTo(Matchers.startsWith("http://nominatim/search")))
+        .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+    NominatimGeocodingAdapter throttled = new NominatimGeocodingAdapter(builder.build(),
+        new GeocodingProperties("http://nominatim", "test-agent", "br", Duration.ofMillis(300), null, null));
+
+    long start = System.nanoTime();
+    throttled.geocode("Campinas");
+    throttled.geocode("Santos");
+
+    assertThat(Duration.ofNanos(System.nanoTime() - start)).isGreaterThanOrEqualTo(Duration.ofMillis(300));
+    server.verify();
+  }
+
+  // @req GEO-005
   @Test
   void providerFailureBecomesUnavailable() {
     server.expect(requestTo(Matchers.startsWith("http://nominatim/search"))).andRespond(withServerError());

@@ -56,6 +56,7 @@ class TripServiceTest {
         "São Paulo", "Rio de Janeiro", 12.0, DEPARTURE);
   }
 
+  // @req TRIP-003
   @Test
   void createsTripWithModelPrediction() {
     eta.next = new EtaPrediction(5.5, 0.89, "v1.0-random-forest", EtaSource.MODEL);
@@ -68,6 +69,7 @@ class TripServiceTest {
     assertThat(repository.findById(trip.id())).isPresent();
   }
 
+  // @req TRIP-004
   @Test
   void fallsBackToHeuristicWhenAiEngineIsDown() {
     eta.failure = new EtaPredictionUnavailableException("offline", null);
@@ -79,6 +81,7 @@ class TripServiceTest {
     assertThat(trip.predictedArrival()).isAfter(DEPARTURE);
   }
 
+  // @req TRIP-008
   @Test
   void updatesStatusAndRecordsArrival() {
     eta.next = new EtaPrediction(5.0, null, "v1", EtaSource.MODEL);
@@ -91,6 +94,7 @@ class TripServiceTest {
     assertThat(done.actualArrival().toInstant()).isEqualTo(NOW);
   }
 
+  // @req TRIP-010
   @Test
   void auditsCreationAndEveryStatusChange() {
     eta.next = new EtaPrediction(5.0, null, "v1", EtaSource.MODEL);
@@ -109,6 +113,7 @@ class TripServiceTest {
     assertThat(history.get(1).after()).containsEntry("status", "IN_TRANSIT");
   }
 
+  // @req TRIP-010
   @Test
   void rejectedTransitionIsNotAudited() {
     eta.next = new EtaPrediction(5.0, null, "v1", EtaSource.MODEL);
@@ -118,6 +123,7 @@ class TripServiceTest {
     assertThat(auditLog.entries).hasSize(1);
   }
 
+  // @req TRIP-007
   @Test
   void rejectsInvalidTransition() {
     eta.next = new EtaPrediction(5.0, null, "v1", EtaSource.MODEL);
@@ -127,6 +133,7 @@ class TripServiceTest {
         .isInstanceOf(InvalidStatusTransitionException.class);
   }
 
+  // @req TRIP-006
   @Test
   void unknownTripThrowsNotFound() {
     assertThatThrownBy(() -> service.getTrip(UUID.randomUUID())).isInstanceOf(TripNotFoundException.class);

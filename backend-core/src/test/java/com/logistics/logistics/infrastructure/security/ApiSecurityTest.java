@@ -33,6 +33,8 @@ import com.logistics.logistics.application.PageResult;
 import com.logistics.logistics.application.service.AuditService;
 import com.logistics.logistics.application.service.GeocodingService;
 import com.logistics.logistics.application.service.TripService;
+import com.logistics.logistics.domain.Coordinates;
+import com.logistics.logistics.domain.GeoLocation;
 import com.logistics.logistics.infrastructure.controller.AuditController;
 import com.logistics.logistics.infrastructure.controller.GeocodingController;
 import com.logistics.logistics.infrastructure.controller.TripController;
@@ -58,6 +60,7 @@ class ApiSecurityTest {
         .authorities(new KeycloakRolesConverter());
   }
 
+  // @req SEC-001
   @Test
   void anonymousRequestGets401ProblemDetail() throws Exception {
     mvc.perform(get("/api/v1/trips"))
@@ -67,6 +70,7 @@ class ApiSecurityTest {
         .andExpect(jsonPath("$.title").value("Não autenticado"));
   }
 
+  // @req TRIP-020
   @Test
   void dispatcherCanOperateTrips() throws Exception {
     when(tripService.listTrips(any(), anyInt(), anyInt())).thenReturn(new PageResult<>(List.of(), 0, 20, 0, 0));
@@ -74,6 +78,7 @@ class ApiSecurityTest {
     mvc.perform(get("/api/v1/trips").with(as("dispatcher-1", Roles.DISPATCHER))).andExpect(status().isOk());
   }
 
+  // @req TRIP-020
   @Test
   void driverAndCustomerCannotAccessTripsYet() throws Exception {
     mvc.perform(get("/api/v1/trips").with(as("driver-1", Roles.DRIVER)))
@@ -84,6 +89,22 @@ class ApiSecurityTest {
         .andExpect(status().isForbidden());
   }
 
+  // @req GEO-010
+  @Test
+  void onlyAdminAndDispatcherCanGeocode() throws Exception {
+    when(geocodingService.geocode("Campinas")).thenReturn(new GeoLocation("Campinas, SP", new Coordinates(-22.9, -47.06)));
+
+    mvc.perform(get("/api/v1/geocode").param("q", "Campinas").with(as("dispatcher-3", Roles.DISPATCHER)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/geocode").param("q", "Campinas").with(as("admin-3", Roles.ADMIN)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/geocode").param("q", "Campinas").with(as("driver-3", Roles.DRIVER)))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/geocode").param("q", "Campinas").with(as("customer-3", Roles.CUSTOMER)))
+        .andExpect(status().isForbidden());
+  }
+
+  // @req TRIP-021
   @Test
   void auditIsAdminOnly() throws Exception {
     UUID id = UUID.randomUUID();
@@ -96,11 +117,13 @@ class ApiSecurityTest {
         .andExpect(jsonPath("$.totalItems").value(0));
   }
 
+  // @req SEC-004
   @Test
   void unknownPathsAreDenied() throws Exception {
     mvc.perform(get("/api/v2/anything").with(as("admin-2", Roles.ADMIN))).andExpect(status().isForbidden());
   }
 
+  // @req SEC-010
   @Test
   void corsAllowsOnlyConfiguredOrigins() throws Exception {
     mvc.perform(options("/api/v1/trips")
@@ -117,6 +140,7 @@ class ApiSecurityTest {
         .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
   }
 
+  // @req SEC-011
   @Test
   void sendsSecurityHeaders() throws Exception {
     mvc.perform(get("/api/v1/trips").secure(true))
@@ -127,6 +151,7 @@ class ApiSecurityTest {
         .andExpect(header().string("Strict-Transport-Security", containsString("max-age=31536000")));
   }
 
+  // @req SEC-012
   @Test
   void rateLimitsPerUserWith429() throws Exception {
     when(tripService.listTrips(any(), anyInt(), anyInt())).thenReturn(new PageResult<>(List.of(), 0, 20, 0, 0));

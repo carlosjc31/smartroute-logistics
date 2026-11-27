@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { formatDateTime, localInputToOffsetIso, nextFullHourLocal, placeLabel } from './format'
 
 describe('datas', () => {
+  // @req TRIP-009
   it('envia a hora local com o fuso do navegador', () => {
     expect(localInputToOffsetIso('2030-01-01T08:00')).toBe('2030-01-01T08:00:00-03:00')
   })
 
+  // @req TRIP-009
   it('sugere a próxima hora cheia', () => {
     expect(nextFullHourLocal(new Date(2030, 0, 1, 7, 30))).toBe('2030-01-01T08:00')
     expect(nextFullHourLocal(new Date(2030, 0, 1, 23, 5))).toBe('2030-01-02T00:00')

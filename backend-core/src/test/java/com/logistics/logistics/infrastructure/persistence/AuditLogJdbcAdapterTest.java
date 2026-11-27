@@ -27,6 +27,7 @@ class AuditLogJdbcAdapterTest {
   @Autowired AuditLogJdbcAdapter adapter;
   @Autowired JdbcTemplate jdbc;
 
+  // @req TRIP-013
   @Test
   void appendsAndReadsHistoryNewestFirst() {
     UUID tripId = UUID.randomUUID();
@@ -51,6 +52,7 @@ class AuditLogJdbcAdapterTest {
         .containsExactly(AuditAction.TRIP_CREATED);
   }
 
+  // @req TRIP-012
   @Test
   void databaseRejectsUpdateAndDelete() {
     UUID tripId = UUID.randomUUID();

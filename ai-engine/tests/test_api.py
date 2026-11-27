@@ -3,6 +3,7 @@ import pytest
 import main
 
 
+# @req ETA-004
 def test_health_reports_model_loaded(client):
     response = client.get("/health")
 
@@ -10,6 +11,7 @@ def test_health_reports_model_loaded(client):
     assert response.json() == {"status": "online", "brain": "Active"}
 
 
+# @req ETA-001
 def test_predicts_positive_duration(client, trip):
     response = client.post("/predict/eta", json=trip)
 
@@ -21,6 +23,7 @@ def test_predicts_positive_duration(client, trip):
     assert 0 <= body["confidence_score"] <= 1
 
 
+# @req ETA-002
 @pytest.mark.parametrize("hour, impact", [(6, "Normal"), (8, "High"), (12, "Normal"), (18, "High"), (20, "Normal")])
 def test_flags_traffic_impact_at_peak_hours(client, trip, hour, impact):
     response = client.post("/predict/eta", json={**trip, "hour_of_day": hour})
@@ -28,6 +31,7 @@ def test_flags_traffic_impact_at_peak_hours(client, trip, hour, impact):
     assert response.json()["metadata"] == {"traffic_impact": impact}
 
 
+# @req ETA-002
 def test_peak_hour_takes_longer(client, trip):
     off_peak = client.post("/predict/eta", json={**trip, "hour_of_day": 12}).json()
     peak = client.post("/predict/eta", json={**trip, "hour_of_day": 8}).json()
@@ -35,6 +39,7 @@ def test_peak_hour_takes_longer(client, trip):
     assert peak["predicted_arrival_hours"] > off_peak["predicted_arrival_hours"]
 
 
+# @req ETA-003
 @pytest.mark.parametrize(
     "field, value",
     [
@@ -54,6 +59,7 @@ def test_rejects_invalid_input(client, trip, field, value):
     assert response.json()["detail"][0]["loc"] == ["body", field]
 
 
+# @req ETA-003
 def test_rejects_missing_field(client, trip):
     del trip["weight"]
 
@@ -62,6 +68,7 @@ def test_rejects_missing_field(client, trip):
     assert response.status_code == 422
 
 
+# @req ETA-004
 def test_returns_503_without_model(client, trip, monkeypatch):
     monkeypatch.setattr(main, "model", None)
 

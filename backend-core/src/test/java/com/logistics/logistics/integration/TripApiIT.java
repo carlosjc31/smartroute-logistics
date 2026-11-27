@@ -1,6 +1,7 @@
 package com.logistics.logistics.integration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -115,6 +116,7 @@ class TripApiIT {
     return builder.build();
   }
 
+  // @req TRIP-001, TRIP-003, TRIP-008, TRIP-013, GEO-001, GEO-003, GEO-004
   @Test
   @SuppressWarnings("unchecked")
   void dispatchesTripWithModelEtaAndCompletesIt() throws Exception {
@@ -128,6 +130,8 @@ class TripApiIT {
 
     Map<String, Object> place = api.get().uri("/geocode?q={q}", "Campinas").retrieve().body(MAP);
     assertThat(place).containsEntry("displayName", "Campinas, São Paulo, Brasil");
+    // A mesma busca com outra caixa e espaços vem do cache, sem nova chamada ao provedor
+    assertThat(api.get().uri("/geocode?q={q}", "  campinas ").retrieve().body(MAP)).isEqualTo(place);
 
     OffsetDateTime departure = OffsetDateTime.now(ZoneOffset.ofHours(-3)).plusDays(1)
         .withHour(8).withMinute(0).withSecond(0).withNano(0);
@@ -146,7 +150,8 @@ class TripApiIT {
     assertThat(trip.get("eta")).isEqualTo(Map.of("source", "MODEL", "modelVersion", "v1.0-random-forest"));
     // 4,92 h do contrato = 295 min, no fuso enviado pelo cliente
     assertThat(OffsetDateTime.parse((String) trip.get("predictedArrival"))).isEqualTo(departure.plusMinutes(295));
-    EXTERNAL.verify(1, getRequestedFor(urlPathEqualTo("/search")));
+    EXTERNAL.verify(1, getRequestedFor(urlPathEqualTo("/search"))
+        .withHeader(HttpHeaders.USER_AGENT, containing("SmartRouteLogistics")));
     EXTERNAL.verify(1, postRequestedFor(urlPathEqualTo("/predict/eta")));
 
     patchStatus(id, "IN_TRANSIT");
@@ -170,6 +175,7 @@ class TripApiIT {
     assertThat(status(api.get().uri("/audit/trips/{id}", id))).isEqualTo(HttpStatus.FORBIDDEN);
   }
 
+  // @req SEC-001, SEC-004, TRIP-020
   @Test
   void rejectsMissingForgedOrMisaddressedTokens() {
     assertThat(status(client(null).get().uri("/trips"))).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -217,6 +223,7 @@ class TripApiIT {
     }
   }
 
+  // @req TRIP-004
   @Test
   void usesHeuristicFallbackWhenAiEngineIsDown() {
     EXTERNAL.stubFor(post("/predict/eta").willReturn(aResponse().withStatus(503)));
@@ -232,6 +239,7 @@ class TripApiIT {
     EXTERNAL.verify(2, postRequestedFor(urlPathEqualTo("/predict/eta")));
   }
 
+  // @req TRIP-007
   @Test
   void invalidTransitionIsRejectedWithProblemDetail() {
     Map<String, Object> trip = api.post().uri("/trips")

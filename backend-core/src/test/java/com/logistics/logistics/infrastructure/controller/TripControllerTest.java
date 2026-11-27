@@ -1,6 +1,8 @@
 package com.logistics.logistics.infrastructure.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.eq;
@@ -8,6 +10,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -62,6 +65,7 @@ class TripControllerTest {
   @MockBean TripService tripService;
   @MockBean GeocodingService geocodingService;
 
+  // @req TRIP-001
   @Test
   void createsTrip() throws Exception {
     when(tripService.createTrip(any())).thenReturn(TRIP);
@@ -86,6 +90,7 @@ class TripControllerTest {
     assertThat(command.getValue().departureTime().getOffset()).isEqualTo(ZoneOffset.ofHours(-3));
   }
 
+  // @req TRIP-002
   @Test
   void rejectsInvalidPayloadWithFieldErrors() throws Exception {
     mvc.perform(post("/api/v1/trips").contentType(MediaType.APPLICATION_JSON).content("""
@@ -98,6 +103,7 @@ class TripControllerTest {
         .andExpect(jsonPath("$.errors.departureTime").exists());
   }
 
+  // @req TRIP-005
   @Test
   void listsTripsWithPagination() throws Exception {
     when(tripService.listTrips(TripStatus.PENDING, 0, 20)).thenReturn(new PageResult<>(List.of(TRIP), 0, 20, 1, 1));
@@ -108,11 +114,13 @@ class TripControllerTest {
         .andExpect(jsonPath("$.totalItems").value(1));
   }
 
+  // @req TRIP-005
   @Test
   void rejectsPageSizeAboveLimit() throws Exception {
     mvc.perform(get("/api/v1/trips").param("size", "500")).andExpect(status().isBadRequest());
   }
 
+  // @req TRIP-006
   @Test
   void returns404ForUnknownTrip() throws Exception {
     UUID id = UUID.randomUUID();
@@ -123,6 +131,7 @@ class TripControllerTest {
         .andExpect(jsonPath("$.title").value("Recurso não encontrado"));
   }
 
+  // @req TRIP-007
   @Test
   void returns409ForInvalidTransition() throws Exception {
     when(tripService.updateStatus(eq(TRIP.id()), eq(TripStatus.COMPLETED)))
@@ -133,6 +142,7 @@ class TripControllerTest {
         .andExpect(status().isConflict());
   }
 
+  // @req SEC-010
   @Test
   void allowsCrossOriginStatusUpdate() throws Exception {
     when(tripService.updateStatus(TRIP.id(), TripStatus.IN_TRANSIT))
@@ -145,6 +155,19 @@ class TripControllerTest {
         .andExpect(jsonPath("$.status").value("IN_TRANSIT"));
   }
 
+  // @req SEC-020
+  @Test
+  void unexpectedErrorHidesInternalDetails() throws Exception {
+    when(tripService.getTrip(any())).thenThrow(new IllegalStateException("senha=abc em jdbc:postgresql://db"));
+
+    mvc.perform(get("/api/v1/trips/{id}", UUID.randomUUID()))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.title").value("Erro interno"))
+        .andExpect(content().string(not(containsString("senha=abc"))))
+        .andExpect(content().string(not(containsString("IllegalStateException"))));
+  }
+
+  // @req GEO-001
   @Test
   void geocodesCity() throws Exception {
     when(geocodingService.geocode("Campinas"))
@@ -155,6 +178,7 @@ class TripControllerTest {
         .andExpect(jsonPath("$.lat").value(-22.9));
   }
 
+  // @req GEO-002
   @Test
   void geocodeReturns404WhenNotFound() throws Exception {
     when(geocodingService.geocode("Xyz")).thenThrow(new LocationNotFoundException("Xyz"));
@@ -162,6 +186,7 @@ class TripControllerTest {
     mvc.perform(get("/api/v1/geocode").param("q", "Xyz")).andExpect(status().isNotFound());
   }
 
+  // @req GEO-005
   @Test
   void geocodingOutageDoesNotLogTheSearchedAddress(CapturedOutput output) throws Exception {
     String address = "Rua das Acácias 123, Campinas";

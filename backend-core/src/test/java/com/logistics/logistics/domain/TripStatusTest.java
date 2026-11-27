@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 class TripStatusTest {
 
+  // @req TRIP-007
   @ParameterizedTest(name = "{0} -> {1} permitido = {2}")
   @CsvSource({
       "PENDING,    IN_TRANSIT, true",
@@ -30,12 +31,14 @@ class TripStatusTest {
     assertThat(from.canTransitionTo(to)).isEqualTo(allowed);
   }
 
+  // @req TRIP-007
   @ParameterizedTest
   @EnumSource(TripStatus.class)
   void noStatusTransitionsToItself(TripStatus status) {
     assertThat(status.canTransitionTo(status)).isFalse();
   }
 
+  // @req TRIP-007
   @ParameterizedTest
   @EnumSource(TripStatus.class)
   void onlyCompletedAndCancelledAreFinal(TripStatus status) {

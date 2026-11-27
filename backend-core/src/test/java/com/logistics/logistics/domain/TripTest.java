@@ -22,6 +22,7 @@ class TripTest {
     return Trip.create(origin, destination, "SP", "RJ", weight, DEPARTURE, NOW);
   }
 
+  // @req TRIP-001
   @Test
   void newTripIsPendingWithoutPrediction() {
     Trip trip = trip(SAO_PAULO, RIO, 10.0);
@@ -30,17 +31,20 @@ class TripTest {
     assertThat(trip.createdAt()).isEqualTo(NOW);
   }
 
+  // @req TRIP-003
   @Test
   void distanceBetweenSaoPauloAndRioIsAbout360Km() {
     assertThat(trip(SAO_PAULO, RIO, 10.0).distanceKm()).isCloseTo(361, within(5.0));
   }
 
+  // @req TRIP-003
   @Test
   void distanceIsFiniteForVeryClosePoints() {
     Coordinates nearby = new Coordinates(-23.5505, -46.63330001);
     assertThat(SAO_PAULO.distanceKmTo(nearby)).isFinite().isGreaterThanOrEqualTo(0);
   }
 
+  // @req TRIP-003
   @Test
   void predictionKeepsMinutesAndSource() {
     Trip trip = trip(SAO_PAULO, RIO, 10.0)
@@ -50,6 +54,7 @@ class TripTest {
     assertThat(trip.etaModelVersion()).isEqualTo("v1");
   }
 
+  // @req TRIP-008
   @Test
   void completingRecordsActualArrival() {
     OffsetDateTime arrival = DEPARTURE.plusHours(5);
@@ -60,12 +65,14 @@ class TripTest {
     assertThat(done.actualArrival()).isEqualTo(arrival);
   }
 
+  // @req TRIP-007
   @Test
   void rejectsInvalidTransition() {
     assertThatThrownBy(() -> trip(SAO_PAULO, RIO, 10.0).transitionTo(TripStatus.COMPLETED, NOW))
         .isInstanceOf(InvalidStatusTransitionException.class);
   }
 
+  // @req TRIP-007
   @Test
   void finalStatusesHaveNoTransitions() {
     assertThat(TripStatus.COMPLETED.isFinal()).isTrue();
@@ -73,21 +80,25 @@ class TripTest {
     assertThat(TripStatus.PENDING.allowedTransitions()).containsExactlyInAnyOrder(TripStatus.IN_TRANSIT, TripStatus.CANCELLED);
   }
 
+  // @req TRIP-002
   @Test
   void rejectsNullWeight() {
     assertThatThrownBy(() -> trip(SAO_PAULO, RIO, null)).isInstanceOf(IllegalArgumentException.class);
   }
 
+  // @req TRIP-002
   @Test
   void rejectsSameOriginAndDestination() {
     assertThatThrownBy(() -> trip(SAO_PAULO, SAO_PAULO, 10.0)).isInstanceOf(IllegalArgumentException.class);
   }
 
+  // @req TRIP-002
   @Test
   void rejectsInvalidLatitude() {
     assertThatThrownBy(() -> new Coordinates(91.0, 0.0)).isInstanceOf(IllegalArgumentException.class);
   }
 
+  // @req TRIP-004
   @Test
   void heuristicAppliesPeakMultiplier() {
     Trip peak = trip(SAO_PAULO, RIO, 0.0); // 08:00, horário de pico
