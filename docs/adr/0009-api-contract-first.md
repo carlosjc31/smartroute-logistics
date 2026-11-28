@@ -1,25 +1,39 @@
 # 0009 — API contract-first com OpenAPI e geração de código
 
-- **Status:** Aceita (implementação na etapa R2)
-- **Data:** 2026-11-27
-- **Specs e issues:** #17, `contracts/`
+- **Status:** Aceita (implementada na R2, #91)
+- **Data:** 2026-11-27 (implementação em 2026-11-28)
+- **Specs e issues:** #17, #91, `contracts/api/openapi.yaml`
 
 ## Contexto
 
-Hoje o OpenAPI é gerado a partir do código (springdoc) e os tipos do frontend são escritos à mão em
-`src/api/`. O contrato só existe depois da implementação e pode divergir do frontend sem que nenhum teste
-perceba. Com SDD ([ADR 0002](0002-spec-driven-development.md)), o contrato deveria ser revisado junto do
-plano, antes do código.
+Antes da R2, o OpenAPI era gerado a partir do código (springdoc) e os tipos do frontend eram escritos à
+mão em `src/api/`. O contrato só existia depois da implementação e podia divergir do frontend sem que
+nenhum teste percebesse. Com SDD ([ADR 0002](0002-spec-driven-development.md)), o contrato deve ser
+revisado junto do plano, antes do código.
 
 ## Decisão
 
-- O contrato da API fica em `contracts/api/openapi.yaml` (OpenAPI 3.1), escrito antes do código.
-- O backend gera interfaces de controller e DTOs (records) com o `openapi-generator-maven-plugin`
-  (`interfaceOnly`); os controllers implementam as interfaces.
-- O frontend gera os tipos com `openapi-typescript`, no lugar dos tipos escritos à mão.
-- O CI roda `oasdiff` contra a `main` e falha em quebra de contrato não sinalizada.
-- O contrato do ai-engine também vira OpenAPI em `contracts/ai-engine/`, verificado contra o que o
-  FastAPI gera.
+- O contrato da API fica em `contracts/api/openapi.yaml`, escrito antes do código. Usa **OpenAPI
+  3.0.3**: o suporte a 3.1 do openapi-generator ainda é parcial (nulos como `type: [x, "null"]`), e
+  3.0.3 atende o que a API precisa.
+- O backend gera as interfaces dos controllers (`controller/api`) e os DTOs (`controller/dto`, sufixo
+  `DTO`) com o `openapi-generator-maven-plugin` (`interfaceOnly`), em `target/generated-sources`, sem
+  versionar. Os controllers implementam as interfaces, e `controller/mapper/ApiMapper` converte entre os
+  DTOs e o domínio. O gerador produz classes, não records: é a exceção à preferência por records.
+- Validações sem equivalente no OpenAPI entram como extensão do gerador no próprio contrato, por exemplo
+  `x-field-extra-annotation: '@jakarta.validation.constraints.Future'`.
+- `ApiContractTest` compara as rotas publicadas pelo backend com as operações do contrato: rota escrita
+  à mão fora do contrato falha o build. `ApiMapperTest` confere que os enums do contrato e do domínio
+  têm os mesmos valores.
+- O frontend gera `src/api/schema.d.ts` com `openapi-typescript` (`npm run generate:api`), versionado;
+  `src/api/types.ts` só dá nomes aos tipos gerados. O CI falha se o arquivo gerado estiver desatualizado.
+- O CI roda `oasdiff breaking` contra a branch de destino e falha em quebra de compatibilidade, a menos
+  que o PR tenha o rótulo `quebra-de-contrato` (e o plano descreva a versão nova ou a janela de
+  compatibilidade, constituição artigo 2).
+- O springdoc continua servindo o Swagger UI fora de produção, agora a partir das anotações geradas do
+  contrato.
+- O contrato do ai-engine continua nos exemplos canônicos de `contracts/ai-engine/`; vira OpenAPI na
+  R4, junto da reorganização do ai-engine em pacote.
 - Eventos (WebSocket e outbox) são descritos em AsyncAPI em `contracts/events/` quando surgirem.
 
 ## Alternativas consideradas
@@ -27,10 +41,13 @@ plano, antes do código.
 | Alternativa | Por que não |
 |---|---|
 | Manter code-first e só validar o spec gerado | Detecta divergência depois; o contrato não é revisado antes do código |
+| Gerar só as interfaces e manter os DTOs records escritos à mão | Os DTOs poderiam divergir do contrato em nome, tipo ou validação sem erro de compilação |
 | GraphQL ou gRPC | Troca de paradigma sem necessidade; REST + OpenAPI atende o painel e integrações |
 
 ## Consequências
 
 - **Positivas:** contrato revisável no PR do plano; frontend e backend não divergem; quebras detectadas no CI.
-- **Negativas e custos:** etapa de geração no build; DTOs gerados exigem mapeamento explícito para o domínio.
-- **O que muda para quem desenvolve:** mudar a API começa editando `openapi.yaml`.
+- **Negativas e custos:** etapa de geração no build; DTOs gerados exigem mapeamento explícito para o
+  domínio; o build Docker do backend precisa do contexto extra `contracts`.
+- **O que muda para quem desenvolve:** mudar a API começa editando `openapi.yaml`; depois
+  `./mvnw compile` (backend) e `npm run generate:api` (frontend).

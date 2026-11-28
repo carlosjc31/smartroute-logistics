@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { CreateTripRequest, GeocodeResult, Page, Trip, TripStatus } from './types'
+import type { CreateTripRequest, GeocodeResult, Trip, TripPage, TripStatus } from './types'
 
 export interface TripFilters {
   status?: TripStatus
@@ -13,7 +13,7 @@ export const tripKeys = {
   detail: (id: string) => ['trips', 'detail', id] as const,
 }
 
-export function listTrips({ status, page = 0, size = 20 }: TripFilters): Promise<Page<Trip>> {
+export function listTrips({ status, page = 0, size = 20 }: TripFilters): Promise<TripPage> {
   const params = new URLSearchParams({ page: String(page), size: String(size) })
   if (status) params.set('status', status)
   return request(`/api/v1/trips?${params}`)

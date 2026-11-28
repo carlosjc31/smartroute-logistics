@@ -72,7 +72,11 @@ services:
 
   backend-core:
     <<: *hardening
-    build: ./backend-core
+    build:
+      context: ./backend-core
+      # O build gera o código da API a partir de contracts/api/openapi.yaml (ADR 0009)
+      additional_contexts:
+        contracts: ./contracts
     image: smartroute/backend-core:local
     container_name: backend-core-service
     environment:

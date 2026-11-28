@@ -19,4 +19,4 @@ Regras:
 | [0006](0006-ai-engine-servico-separado.md) | Inferência de ETA em serviço Python separado | Aceita |
 | [0007](0007-excecoes-de-cve-com-expiracao.md) | Exceções de CVE só com justificativa e expiração | Aceita |
 | [0008](0008-websocket-para-tempo-real.md) | WebSocket (STOMP) em vez de SSE para tempo real | Aceita |
-| [0009](0009-api-contract-first.md) | API contract-first com OpenAPI e geração de código | Aceita |
+| [0009](0009-api-contract-first.md) | API contract-first com OpenAPI e geração de código | Aceita (implementada na R2) |

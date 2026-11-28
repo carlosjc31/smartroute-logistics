@@ -1,56 +1,33 @@
-export const TRIP_STATUSES = ['PENDING', 'IN_TRANSIT', 'DELAYED', 'COMPLETED', 'CANCELLED'] as const
-export type TripStatus = (typeof TRIP_STATUSES)[number]
+/**
+ * Tipos da API, derivados do contrato (contracts/api/openapi.yaml, ADR 0009).
+ * `schema.d.ts` é gerado por `npm run generate:api`: não edite à mão. Mudou a API? Edite o contrato e
+ * gere de novo; o CI falha se `schema.d.ts` estiver desatualizado.
+ */
+import type { components } from './schema'
 
-export interface Location {
-  label: string | null
-  lat: number
-  lng: number
-}
+type Schemas = components['schemas']
 
-export interface Trip {
-  id: string
-  origin: Location
-  destination: Location
-  payloadWeight: number
-  distanceKm: number
-  status: TripStatus
-  allowedTransitions: TripStatus[]
-  departureTime: string
-  predictedArrival: string | null
-  eta: { source: 'MODEL' | 'FALLBACK'; modelVersion: string | null } | null
-  actualArrival: string | null
-  createdAt: string
-}
-
-export interface Page<T> {
-  items: T[]
-  page: number
-  size: number
-  totalItems: number
-  totalPages: number
-}
-
-export interface CreateTripRequest {
-  originLat: number
-  originLng: number
-  destLat: number
-  destLng: number
-  originLabel?: string
-  destinationLabel?: string
-  payloadWeight: number
-  departureTime: string
-}
-
-export interface GeocodeResult {
-  displayName: string
-  lat: number
-  lng: number
-}
-
+export type TripStatus = Schemas['TripStatus']
+export type Location = Schemas['Location']
+export type Trip = Schemas['Trip']
+export type TripPage = Schemas['TripPage']
+export type CreateTripRequest = Schemas['TripRequest']
+export type GeocodeResult = Schemas['GeocodeResult']
+export type AuditEntry = Schemas['AuditEntry']
+export type AuditEntryPage = Schemas['AuditEntryPage']
 /** Corpo de erro RFC 7807 devolvido pelo backend. */
-export interface Problem {
-  title?: string
-  detail?: string
-  status?: number
-  errors?: Record<string, string>
-}
+export type Problem = Schemas['Problem']
+
+// `satisfies` falha no typecheck se o contrato ganhar ou perder um status sem este mapa acompanhar.
+const STATUS_ORDER = {
+  PENDING: 0,
+  IN_TRANSIT: 1,
+  DELAYED: 2,
+  COMPLETED: 3,
+  CANCELLED: 4,
+} as const satisfies Record<TripStatus, number>
+
+/** Status na ordem do fluxo da viagem (filtro do painel). */
+export const TRIP_STATUSES = (Object.keys(STATUS_ORDER) as TripStatus[]).sort(
+  (a, b) => STATUS_ORDER[a] - STATUS_ORDER[b],
+)

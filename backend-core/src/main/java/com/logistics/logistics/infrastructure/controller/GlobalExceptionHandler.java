@@ -22,6 +22,8 @@ import com.logistics.logistics.application.exception.GeocodingUnavailableExcepti
 import com.logistics.logistics.application.exception.NotFoundException;
 import com.logistics.logistics.domain.exception.DomainException;
 
+import jakarta.validation.ConstraintViolationException;
+
 /** Converte exceções em respostas RFC 7807 (application/problem+json). */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -41,6 +43,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(IllegalArgumentException.class)
   ProblemDetail handleInvalidInput(IllegalArgumentException e) {
     return problem(HttpStatus.BAD_REQUEST, "Dados inválidos", e.getMessage());
+  }
+
+  /**
+   * Parâmetro de rota ou de query fora do contrato (por exemplo {@code size=500}). As interfaces geradas
+   * têm {@code @Validated}, então a validação dos parâmetros vem do proxy de método. O valor recebido não
+   * volta na resposta: pode ser a busca de geocodificação (LGPD).
+   */
+  @ExceptionHandler(ConstraintViolationException.class)
+  ProblemDetail handleInvalidParameter(ConstraintViolationException e) {
+    return problem(HttpStatus.BAD_REQUEST, "Dados inválidos", "Um ou mais parâmetros são inválidos.");
   }
 
   @ExceptionHandler(GeocodingUnavailableException.class)
