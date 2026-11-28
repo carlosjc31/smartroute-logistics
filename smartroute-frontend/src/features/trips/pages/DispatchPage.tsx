@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '../api/client'
-import { createTrip, geocode, tripKeys } from '../api/trips'
-import { localInputToOffsetIso, nextFullHourLocal } from '../lib/format'
+import { ApiError } from '../../../shared/api/client'
+import { localInputToOffsetIso, nextFullHourLocal } from '../../../shared/lib/format'
+import { geocode } from '../../geocoding'
+import { createTrip, tripKeys } from '../api'
 
 interface DispatchForm {
   origin: string

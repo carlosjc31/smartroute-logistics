@@ -37,9 +37,9 @@ estimativa heurística do domínio (`eta.source = FALLBACK`).
   requisito sem teste ou se um `@req` apontar para requisito inexistente; `--report` mostra o mapa.
 - Decisões de arquitetura ficam em `docs/adr/` (formato em `docs/adr/template.md`). Leia as ADRs antes
   de propor mudança estrutural; decisão nova vira ADR nova, a antiga é marcada como substituída.
-- Reestruturação antes da Fase 4: R1 (SDD e ADRs), R2 (API contract-first, ADR 0009) e R3 (monólito
-  modular com Spring Modulith, ADR 0004) feitas; falta R4 (ai-engine em pacote e frontend por
-  funcionalidade).
+- Reestruturação antes da Fase 4 concluída: R1 (SDD e ADRs), R2 (API contract-first, ADR 0009), R3
+  (monólito modular com Spring Modulith, ADR 0004) e R4 (ai-engine em pacote `app/` e frontend por
+  funcionalidade). A Fase 4 começa pela spec 005.
 
 ## Comandos
 
@@ -59,9 +59,10 @@ cd backend-core
 # ai-engine
 cd ai-engine
 uv pip install -r requirements.txt   # ou pip
-SERVICE_TOKEN=dev-local-token python main.py   # http://localhost:8000/docs (sem token não sobe)
+SERVICE_TOKEN=dev-local-token python -m app    # http://localhost:8000/docs (sem token não sobe)
 pip install -r requirements-dev.txt && pytest   # testes (API, contrato, qualidade do modelo)
-python generate_data.py && python train_model.py   # regera dataset sintético e modelo
+python -m training.generate_data && python -m training.train_model   # regera dataset e modelo (models/)
+SERVICE_TOKEN=x python -m app.contract   # regrava contracts/ai-engine/openapi.json (revise o diff)
 
 # specs
 python3 scripts/check_spec_traceability.py   # requisitos ↔ testes (@req); --report para o mapa
@@ -72,7 +73,7 @@ npm ci
 npm run dev                      # http://localhost:5173 (proxy de /api para localhost:8080)
 npm test                         # Vitest + Testing Library
 npm run lint && npm run build    # build roda o typecheck (tsc -b)
-npm run generate:api             # regera src/api/schema.d.ts de contracts/api/openapi.yaml
+npm run generate:api             # regera src/shared/api/schema.d.ts de contracts/api/openapi.yaml
 E2E_PASSWORD=... npm run e2e     # Playwright; exige o compose no ar (login real no Keycloak)
 ```
 
@@ -151,7 +152,7 @@ Regras:
 - `predicted_arrival_hours` é **decimal**: converta para minutos (`Trip.estimateArrival`), nunca trunque.
 - Modelo indisponível → `503`. Entrada inválida → `422` (validação Pydantic). Sem token → `401`.
 - Autenticação: `Authorization: Bearer <AI_ENGINE_TOKEN>` (no ai-engine, `SERVICE_TOKEN`). O modelo só
-  carrega se o SHA-256 bater com `delivery_model.pkl.sha256` (regerado pelo `train_model.py`).
+  carrega se o SHA-256 bater com `models/delivery_model.pkl.sha256` (regerado pelo `training/train_model.py`).
 - Ao mudar o contrato, altere os dois lados no mesmo PR. Os exemplos canônicos ficam em
   `contracts/ai-engine/` e são testados pelos dois serviços (`AiEngineContractTest` e
   `tests/test_contract.py`): atualize-os junto.
@@ -162,16 +163,30 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
 `GEOCODING_COUNTRY_CODES` (backend); `SERVICE_TOKEN`, `MODEL_PATH`, `MODEL_SHA256` (ai-engine);
 `VITE_API_URL`, `VITE_PROXY_TARGET`, `VITE_OIDC_AUTHORITY`, `VITE_OIDC_CLIENT_ID` (frontend).
 
-## Frontend
+## Frontend (por funcionalidade)
 
-- `src/api/`: cliente `fetch` tipado (`client.ts`, que lança `ApiError` com os erros por campo) e funções
-  por recurso (`trips.ts`). Componentes nunca chamam `fetch` direto.
-- Os tipos da API vêm do contrato: `schema.d.ts` é gerado por `npm run generate:api` (não edite) e
-  `types.ts` só dá nomes a eles. O CI falha se `schema.d.ts` estiver desatualizado.
-- Dados do servidor via TanStack Query (chaves em `tripKeys`); estado de filtro/página na URL.
-- Rotas em `main.tsx`; páginas em `src/pages/`, componentes reutilizáveis em `src/components/`.
-- Autenticação em `src/auth/` (`react-oidc-context`): `RequireAuth` protege o layout, e `client.ts` anexa
-  o token. Nunca guarde token em `localStorage` nem implemente login próprio.
+```
+src/
+  main.tsx                 rotas, providers (Query, OIDC)
+  features/<nome>/         uma pasta por funcionalidade: trips, geocoding
+    index.ts               API pública (o que outras funcionalidades e o roteador podem importar)
+    api.ts                 chamadas HTTP e chaves do TanStack Query (tripKeys)
+    pages/, components/    telas e componentes da funcionalidade
+  shared/                  base sem dependência de funcionalidade
+    api/                   client.ts (fetch, ApiError), schema.d.ts (gerado) e types.ts (nomes)
+    auth/                  react-oidc-context: RequireAuth, UserMenu, config
+    layout/, lib/          Layout e formatadores (datas, coordenadas)
+  test/                    setup e utils (renderRoute, mockFetch)
+```
+
+- O ESLint barra import de arquivo interno de outra funcionalidade (use `../../geocoding`, o `index.ts`) e
+  import de `features/` dentro de `shared/`. Funcionalidade nova é uma pasta nova em `src/features`.
+- Componentes nunca chamam `fetch` direto: usam o `api.ts` da funcionalidade, sobre `shared/api/client.ts`.
+- Os tipos da API vêm do contrato: `shared/api/schema.d.ts` é gerado por `npm run generate:api` (não
+  edite) e `types.ts` só dá nomes a eles. O CI falha se `schema.d.ts` estiver desatualizado.
+- Dados do servidor via TanStack Query; estado de filtro/página na URL.
+- Autenticação em `shared/auth/`: `RequireAuth` protege o layout, e `client.ts` anexa o token. Nunca guarde
+  token em `localStorage` nem implemente login próprio.
 - Datas enviadas com o fuso do navegador (`localInputToOffsetIso`).
 
 ## Convenções
@@ -213,4 +228,6 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
 - LGPD: retenção e direitos do titular pendentes (#34).
 - `is_rainy` sempre 0 e `confidence_score` fixo: issues #47 e #49.
 - Distância em linha reta, não por estrada: issue #45.
-- Dataset de treino é sintético (`generate_data.py`).
+- Dataset de treino é sintético (`training/generate_data.py`).
+- Dependências do ai-engine em faixas (`>=`): o CI instala o scikit-learn mais novo, diferente do usado no
+  treino do `.pkl` (aviso `InconsistentVersionWarning`). Fixar versões junto da #31 (skops/ONNX).

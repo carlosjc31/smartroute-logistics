@@ -202,7 +202,7 @@ curl -X POST http://localhost:8080/api/v1/trips \
 ## Modelo de machine learning
 
 O `ai-engine` usa um `RandomForestRegressor` treinado com um dataset **sintético** de 5.000 viagens,
-gerado por [`generate_data.py`](ai-engine/generate_data.py):
+gerado por [`training/generate_data.py`](ai-engine/training/generate_data.py):
 
 | Variável | Efeito no tempo de viagem |
 |---|---|
@@ -211,12 +211,12 @@ gerado por [`generate_data.py`](ai-engine/generate_data.py):
 | Hora de saída | ×1,5 nos horários de pico (7h–9h e 17h–19h) |
 | Chuva | ×1,2 |
 
-O treino ([`train_model.py`](ai-engine/train_model.py)) separa 20% dos dados para teste e reporta o erro
+O treino ([`training/train_model.py`](ai-engine/training/train_model.py)) separa 20% dos dados para teste e reporta o erro
 médio absoluto em minutos. Para retreinar:
 
 ```bash
 cd ai-engine
-python generate_data.py && python train_model.py
+python -m training.generate_data && python -m training.train_model
 ```
 
 > O modelo atual serve para demonstração. O [roadmap](#roadmap) prevê o re-treino com as chegadas reais

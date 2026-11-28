@@ -3,7 +3,7 @@ import { render } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { vi } from 'vitest'
-import type { Trip } from '../api/types'
+import type { Trip } from '../shared/api/types'
 
 /** Renderiza uma rota com QueryClient e router em memória, como no app real. */
 export function renderRoute(path: string, routes: { path: string; element: ReactNode }[]) {

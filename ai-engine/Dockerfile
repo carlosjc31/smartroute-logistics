@@ -19,7 +19,9 @@ RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app 
 WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin/uvicorn /usr/local/bin/uvicorn
-COPY --chown=root:root main.py delivery_model.pkl delivery_model.pkl.sha256 ./
+# Só o serviço e o modelo versionado com o hash; dados e scripts de treino ficam fora da imagem
+COPY --chown=root:root app/ app/
+COPY --chown=root:root models/ models/
 
 USER app
 EXPOSE 8000
@@ -27,4 +29,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if b'Active' in urllib.request.urlopen('http://localhost:8000/health', timeout=2).read() else 1)"
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "app"]

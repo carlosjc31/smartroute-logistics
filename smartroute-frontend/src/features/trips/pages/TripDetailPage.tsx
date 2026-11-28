@@ -1,9 +1,10 @@
 import { Link, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getTrip, tripKeys, updateTripStatus } from '../api/trips'
-import type { TripStatus } from '../api/types'
+import type { TripStatus } from '../../../shared/api/types'
+import { formatDateTime, placeLabel } from '../../../shared/lib/format'
+import { getTrip, tripKeys, updateTripStatus } from '../api'
 import { StatusBadge } from '../components/StatusBadge'
-import { formatDateTime, placeLabel, STATUS_LABELS } from '../lib/format'
+import { STATUS_LABELS } from '../status'
 
 export function TripDetailPage() {
   const { id = '' } = useParams()

@@ -48,16 +48,23 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           ALLOW_BREAKING: ${{ contains(github.event.pull_request.labels.*.name, 'quebra-de-contrato') }}
         run: |
-          if ! git cat-file -e "origin/$BASE_REF:contracts/api/openapi.yaml" 2>/dev/null; then
-            echo "Contrato ainda não existe em $BASE_REF; nada a comparar."; exit 0
-          fi
-          git show "origin/$BASE_REF:contracts/api/openapi.yaml" > "$RUNNER_TEMP/base.yaml"
-          oasdiff changelog "$RUNNER_TEMP/base.yaml" contracts/api/openapi.yaml --format markdown >> "$GITHUB_STEP_SUMMARY"
-          if [ "$ALLOW_BREAKING" = "true" ]; then
-            oasdiff breaking "$RUNNER_TEMP/base.yaml" contracts/api/openapi.yaml
-          else
-            oasdiff breaking "$RUNNER_TEMP/base.yaml" contracts/api/openapi.yaml --fail-on ERR --format githubactions
-          fi
+          status=0
+          for contract in contracts/api/openapi.yaml contracts/ai-engine/openapi.json; do
+            echo "::group::$contract"
+            if ! git cat-file -e "origin/$BASE_REF:$contract" 2>/dev/null; then
+              echo "$contract ainda não existe em $BASE_REF; nada a comparar."; echo "::endgroup::"; continue
+            fi
+            base="$RUNNER_TEMP/base-$(basename "$(dirname "$contract")").${contract##*.}"
+            git show "origin/$BASE_REF:$contract" > "$base"
+            { echo "### $contract"; oasdiff changelog "$base" "$contract" --format markdown; } >> "$GITHUB_STEP_SUMMARY"
+            if [ "$ALLOW_BREAKING" = "true" ]; then
+              oasdiff breaking "$base" "$contract"
+            else
+              oasdiff breaking "$base" "$contract" --fail-on ERR --format githubactions || status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
 
   backend:
     name: backend-core (Maven verify)
@@ -126,7 +133,7 @@ jobs:
       - name: Tipos gerados conferem com o contrato
         run: |
           npm run generate:api
-          git diff --exit-code -- src/api/schema.d.ts || { echo "::error::Rode 'npm run generate:api' e versione src/api/schema.d.ts"; exit 1; }
+          git diff --exit-code -- src/shared/api/schema.d.ts || { echo "::error::Rode 'npm run generate:api' e versione src/shared/api/schema.d.ts"; exit 1; }
       - run: npm run lint
       - run: npm test
       - run: npm run build

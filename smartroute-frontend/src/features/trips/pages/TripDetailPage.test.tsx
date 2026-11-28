@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { TripDetailPage } from './TripDetailPage'
-import { aTrip, jsonResponse, mockFetch, renderRoute } from '../test/utils'
+import { aTrip, jsonResponse, mockFetch, renderRoute } from '../../../test/utils'
 
 const renderDetail = () => renderRoute('/trips/trip-1', [{ path: '/trips/:id', element: <TripDetailPage /> }])
 

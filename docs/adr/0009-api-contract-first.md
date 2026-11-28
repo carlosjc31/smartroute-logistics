@@ -26,15 +26,18 @@ revisado junto do plano, antes do código.
 - `ApiContractTest` compara as rotas publicadas pelo backend com as operações do contrato: rota escrita
   à mão fora do contrato falha o build. `TripApiMapperTest` e `AuditApiMapperTest` conferem que os enums
   do contrato e do domínio têm os mesmos valores.
-- O frontend gera `src/api/schema.d.ts` com `openapi-typescript` (`npm run generate:api`), versionado;
-  `src/api/types.ts` só dá nomes aos tipos gerados. O CI falha se o arquivo gerado estiver desatualizado.
+- O frontend gera `src/shared/api/schema.d.ts` com `openapi-typescript` (`npm run generate:api`), versionado;
+  `src/shared/api/types.ts` só dá nomes aos tipos gerados. O CI falha se o arquivo gerado estiver desatualizado.
 - O CI roda `oasdiff breaking` contra a branch de destino e falha em quebra de compatibilidade, a menos
   que o PR tenha o rótulo `quebra-de-contrato` (e o plano descreva a versão nova ou a janela de
   compatibilidade, constituição artigo 2).
 - O springdoc continua servindo o Swagger UI fora de produção, agora a partir das anotações geradas do
   contrato.
-- O contrato do ai-engine continua nos exemplos canônicos de `contracts/ai-engine/`; vira OpenAPI na
-  R4, junto da reorganização do ai-engine em pacote.
+- O contrato do ai-engine (`contracts/ai-engine/openapi.json`) é exportado do FastAPI pelos modelos
+  Pydantic (`python -m app.contract`) e versionado (R4). `tests/test_contract.py` compara uma visão
+  normalizada (rotas, campos, tipos, obrigatórios e limites) com o arquivo, para não quebrar com
+  mudanças cosméticas de versão do FastAPI. O oasdiff checa as quebras como na API do backend. Os
+  exemplos canônicos continuam verificados pelos dois lados.
 - Eventos (WebSocket e outbox) são descritos em AsyncAPI em `contracts/events/` quando surgirem.
 
 ## Alternativas consideradas

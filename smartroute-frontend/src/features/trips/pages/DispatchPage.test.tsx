@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { DispatchPage } from './DispatchPage'
-import { aTrip, jsonResponse, mockFetch, renderRoute } from '../test/utils'
+import { aTrip, jsonResponse, mockFetch, renderRoute } from '../../../test/utils'
 
 const PLACES: Record<string, { displayName: string; lat: number; lng: number }> = {
   'São Paulo': { displayName: 'São Paulo, Brasil', lat: -23.5505, lng: -46.6333 },

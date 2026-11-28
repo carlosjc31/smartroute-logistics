@@ -1,8 +1,10 @@
-"""Contrato backend ↔ ai-engine: os mesmos exemplos são verificados pelo AiEngineContractTest (Java)."""
+"""Contrato backend ↔ ai-engine: o OpenAPI versionado e os exemplos verificados também pelo AiEngineContractTest (Java)."""
 import json
 from pathlib import Path
 
-import main
+from app.contract import CONTRACT_PATH, normalize
+from app.main import app as application
+from app.schemas import TripData
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts" / "ai-engine"
 
@@ -23,7 +25,7 @@ def json_type(value):
 def test_request_sent_by_backend_is_accepted(client):
     request = load("predict-eta.request.json")
 
-    assert set(main.TripData.model_fields) == set(request), "campos de entrada divergem do contrato"
+    assert set(TripData.model_fields) == set(request), "campos de entrada divergem do contrato"
     assert client.post("/predict/eta", json=request).status_code == 200
 
 
@@ -37,3 +39,12 @@ def test_response_matches_what_backend_reads(client):
     for field, value in expected.items():
         assert json_type(actual[field]) == json_type(value), field
     assert set(actual["metadata"]) == set(expected["metadata"])
+
+
+# @req ETA-005
+def test_openapi_matches_versioned_contract():
+    versioned = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+
+    assert normalize(application.openapi()) == normalize(versioned), (
+        "o código diverge de contracts/ai-engine/openapi.json: rode `python -m app.contract` e revise o diff"
+    )

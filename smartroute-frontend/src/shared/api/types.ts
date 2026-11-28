@@ -17,17 +17,3 @@ export type AuditEntry = Schemas['AuditEntry']
 export type AuditEntryPage = Schemas['AuditEntryPage']
 /** Corpo de erro RFC 7807 devolvido pelo backend. */
 export type Problem = Schemas['Problem']
-
-// `satisfies` falha no typecheck se o contrato ganhar ou perder um status sem este mapa acompanhar.
-const STATUS_ORDER = {
-  PENDING: 0,
-  IN_TRANSIT: 1,
-  DELAYED: 2,
-  COMPLETED: 3,
-  CANCELLED: 4,
-} as const satisfies Record<TripStatus, number>
-
-/** Status na ordem do fluxo da viagem (filtro do painel). */
-export const TRIP_STATUSES = (Object.keys(STATUS_ORDER) as TripStatus[]).sort(
-  (a, b) => STATUS_ORDER[a] - STATUS_ORDER[b],
-)
