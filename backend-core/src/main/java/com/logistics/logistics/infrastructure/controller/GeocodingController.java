@@ -1,22 +1,16 @@
 package com.logistics.logistics.infrastructure.controller;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.logistics.logistics.application.service.GeocodingService;
-import com.logistics.logistics.infrastructure.controller.dto.GeocodeResponseDTO;
+import com.logistics.logistics.infrastructure.controller.api.GeocodingApi;
+import com.logistics.logistics.infrastructure.controller.dto.GeocodeResultDTO;
+import com.logistics.logistics.infrastructure.controller.mapper.ApiMapper;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-
+/** Geocodificação. A busca ({@code q}) é dado pessoal: não vai para log (LGPD). */
 @RestController
-@RequestMapping("/api/v1/geocode")
-@Tag(name = "Geocodificação")
-public class GeocodingController {
+public class GeocodingController implements GeocodingApi {
 
   private final GeocodingService geocodingService;
 
@@ -24,9 +18,8 @@ public class GeocodingController {
     this.geocodingService = geocodingService;
   }
 
-  @GetMapping
-  @Operation(summary = "Converte um endereço ou cidade em coordenadas")
-  public GeocodeResponseDTO geocode(@RequestParam("q") @NotBlank @Size(max = 200) String query) {
-    return GeocodeResponseDTO.from(geocodingService.geocode(query));
+  @Override
+  public ResponseEntity<GeocodeResultDTO> geocode(String query) {
+    return ResponseEntity.ok(ApiMapper.toDto(geocodingService.geocode(query)));
   }
 }

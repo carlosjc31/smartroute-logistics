@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -176,6 +177,14 @@ class TripControllerTest {
     mvc.perform(get("/api/v1/geocode").param("q", "Campinas"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.lat").value(-22.9));
+  }
+
+  // @req GEO-001
+  @Test
+  void rejectsBlankGeocodingQuery() throws Exception {
+    mvc.perform(get("/api/v1/geocode").param("q", "   ")).andExpect(status().isBadRequest());
+
+    verifyNoInteractions(geocodingService);
   }
 
   // @req GEO-002

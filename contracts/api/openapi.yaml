@@ -1,0 +1,526 @@
+# Contrato da API do backend-core (ADR 0009). Fonte da verdade: o backend gera interfaces e DTOs a
+# partir deste arquivo e o frontend gera os tipos. Mudar a API começa aqui, no PR do plano da spec.
+# O CI roda oasdiff contra a main e falha em quebra de compatibilidade.
+openapi: 3.0.3
+info:
+  title: SmartRoute Logistics API
+  version: v1
+  description: |
+    Despacho de viagens com previsão de chegada (ETA) por machine learning.
+
+    Toda rota exige um JWT do Keycloak (`Authorization: Bearer`). O perfil exigido está na descrição de
+    cada operação; perfil sem acesso recebe 403. Erros seguem a RFC 7807 (`application/problem+json`).
+    Requisitos: specs 001 (viagens), 002 (geocodificação) e 004 (segurança da API).
+servers:
+  - url: /
+security:
+  - bearer: []
+tags:
+  - name: trips
+    description: Viagens
+  - name: geocoding
+    description: Geocodificação
+  - name: audit
+    description: Auditoria
+
+paths:
+  /api/v1/trips:
+    post:
+      tags: [trips]
+      operationId: createTrip
+      summary: Cria uma viagem e calcula a previsão de chegada
+      description: "Perfis: ADMIN, DISPATCHER (TRIP-020). Requisitos: TRIP-001 a TRIP-004, TRIP-010."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripRequest'
+      responses:
+        '201':
+          description: Viagem criada
+          headers:
+            Location:
+              description: URL da viagem criada
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    get:
+      tags: [trips]
+      operationId: listTrips
+      summary: Lista viagens (mais recentes primeiro), com filtro opcional por status
+      description: "Perfis: ADMIN, DISPATCHER (TRIP-020). Requisito: TRIP-005."
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TripStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de viagens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/trips/{id}:
+    get:
+      tags: [trips]
+      operationId: getTrip
+      summary: Detalha uma viagem
+      description: "Perfis: ADMIN, DISPATCHER (TRIP-020). Requisito: TRIP-006."
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      responses:
+        '200':
+          description: Viagem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/trips/{id}/status:
+    patch:
+      tags: [trips]
+      operationId: updateTripStatus
+      summary: Avança o status da viagem (ver allowedTransitions)
+      description: "Perfis: ADMIN, DISPATCHER (TRIP-020). Requisitos: TRIP-007, TRIP-008, TRIP-010."
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripStatusUpdate'
+      responses:
+        '200':
+          description: Viagem com o novo status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transição de status não permitida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/geocode:
+    get:
+      tags: [geocoding]
+      operationId: geocode
+      summary: Converte um endereço ou cidade em coordenadas
+      description: "Perfis: ADMIN, DISPATCHER (GEO-010). Requisitos: GEO-001 a GEO-005."
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Endereço ou cidade. Não é registrado em log (LGPD).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+            pattern: '.*\S.*'
+      responses:
+        '200':
+          description: Lugar encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeocodeResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          description: Serviço de geocodificação indisponível
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /api/v1/audit/trips/{id}:
+    get:
+      tags: [audit]
+      operationId: getTripAuditHistory
+      summary: Histórico de alterações de uma viagem
+      description: "Perfil: ADMIN (TRIP-021). Requisitos: TRIP-011, TRIP-013."
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página do histórico, do mais recente para o mais antigo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEntryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TripId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Página, a partir de 0
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Itens por página
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Dados inválidos; `errors` traz a mensagem por campo quando o corpo é inválido
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: Token ausente, inválido ou expirado
+    Forbidden:
+      description: O perfil do usuário não tem acesso à operação
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    TooManyRequests:
+      description: Limite de requisições excedido; tente após o tempo em `Retry-After`
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+
+  schemas:
+    TripStatus:
+      type: string
+      enum: [PENDING, IN_TRANSIT, DELAYED, COMPLETED, CANCELLED]
+
+    EtaSource:
+      type: string
+      description: MODEL é a previsão do ai-engine; FALLBACK, a estimativa heurística usada quando ele falha
+      enum: [MODEL, FALLBACK]
+
+    TripRequest:
+      type: object
+      required: [originLat, originLng, destLat, destLng, payloadWeight, departureTime]
+      properties:
+        originLat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        originLng:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        destLat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        destLng:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        originLabel:
+          type: string
+          maxLength: 200
+          example: São Paulo, SP
+        destinationLabel:
+          type: string
+          maxLength: 200
+          example: Rio de Janeiro, RJ
+        payloadWeight:
+          type: number
+          format: double
+          description: Peso da carga em toneladas
+          minimum: 0
+          exclusiveMinimum: true
+        departureTime:
+          type: string
+          format: date-time
+          description: Horário de saída no futuro, com fuso (ISO-8601). O fuso é preservado.
+          example: '2030-01-01T08:00:00-03:00'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Future'
+
+    TripStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/TripStatus'
+
+    Location:
+      type: object
+      required: [label, lat, lng]
+      properties:
+        label:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+
+    Eta:
+      type: object
+      required: [source, modelVersion]
+      properties:
+        source:
+          $ref: '#/components/schemas/EtaSource'
+        modelVersion:
+          type: string
+          nullable: true
+
+    Trip:
+      type: object
+      required:
+        - id
+        - origin
+        - destination
+        - payloadWeight
+        - distanceKm
+        - status
+        - allowedTransitions
+        - departureTime
+        - predictedArrival
+        - eta
+        - actualArrival
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        origin:
+          $ref: '#/components/schemas/Location'
+        destination:
+          $ref: '#/components/schemas/Location'
+        payloadWeight:
+          type: number
+          format: double
+        distanceKm:
+          type: number
+          format: double
+          description: Distância em linha reta (Haversine), com uma casa decimal
+        status:
+          $ref: '#/components/schemas/TripStatus'
+        allowedTransitions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/TripStatus'
+        departureTime:
+          type: string
+          format: date-time
+        predictedArrival:
+          type: string
+          format: date-time
+          nullable: true
+        eta:
+          allOf:
+            - $ref: '#/components/schemas/Eta'
+          nullable: true
+        actualArrival:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    TripPage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trip'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+
+    GeocodeResult:
+      type: object
+      required: [displayName, lat, lng]
+      properties:
+        displayName:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+
+    AuditAction:
+      type: string
+      enum: [TRIP_CREATED, TRIP_STATUS_CHANGED]
+
+    AuditEntry:
+      type: object
+      required: [id, occurredAt, actor, action, before, after]
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        actor:
+          type: string
+          description: Usuário do token (claim preferred_username ou sub)
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        before:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Estado anterior. Nunca contém coordenadas nem endereços.
+        after:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Estado novo. Nunca contém coordenadas nem endereços.
+
+    AuditEntryPage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEntry'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+
+    Problem:
+      type: object
+      description: Erro RFC 7807
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: object
+          description: Mensagem de erro por campo (só em 400 de corpo inválido)
+          additionalProperties:
+            type: string

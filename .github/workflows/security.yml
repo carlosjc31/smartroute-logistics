@@ -54,7 +54,7 @@ jobs:
       - name: Imagens do ai-engine e do backend-core
         run: |
           docker build -t smartroute/ai-engine:scan ai-engine
-          docker build -t smartroute/backend-core:scan backend-core
+          docker build -t smartroute/backend-core:scan --build-context contracts=contracts backend-core
           for image in smartroute/ai-engine:scan smartroute/backend-core:scan; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache/trivy" \
               -v "$PWD/.trivyignore:/.trivyignore:ro" \

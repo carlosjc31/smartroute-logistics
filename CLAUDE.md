@@ -37,8 +37,8 @@ estimativa heurística do domínio (`eta.source = FALLBACK`).
   requisito sem teste ou se um `@req` apontar para requisito inexistente; `--report` mostra o mapa.
 - Decisões de arquitetura ficam em `docs/adr/` (formato em `docs/adr/template.md`). Leia as ADRs antes
   de propor mudança estrutural; decisão nova vira ADR nova, a antiga é marcada como substituída.
-- Reestruturação em andamento antes da Fase 4: R1 (SDD e ADRs), R2 (API contract-first, ADR 0009),
-  R3 (monólito modular com Spring Modulith, ADR 0004), R4 (ai-engine em pacote e frontend por
+- Reestruturação em andamento antes da Fase 4: R1 (SDD e ADRs, feita), R2 (API contract-first,
+  ADR 0009, feita), R3 (monólito modular com Spring Modulith, ADR 0004), R4 (ai-engine em pacote e frontend por
   funcionalidade).
 
 ## Comandos
@@ -72,6 +72,7 @@ npm ci
 npm run dev                      # http://localhost:5173 (proxy de /api para localhost:8080)
 npm test                         # Vitest + Testing Library
 npm run lint && npm run build    # build roda o typecheck (tsc -b)
+npm run generate:api             # regera src/api/schema.d.ts de contracts/api/openapi.yaml
 E2E_PASSWORD=... npm run e2e     # Playwright; exige o compose no ar (login real no Keycloak)
 ```
 
@@ -93,7 +94,12 @@ Pacote base `com.logistics.logistics`:
   headers, rate limit); `config/`.
 
 Regras:
-- Não exponha entidades JPA nem records de domínio na API; use DTOs (`controller/dto`).
+- **Contract-first (ADR 0009):** a API está em `contracts/api/openapi.yaml`. As interfaces
+  (`controller/api`) e os DTOs (`controller/dto`, classes `*DTO`) são **gerados** no build pelo
+  `openapi-generator-maven-plugin`: não os escreva à mão. Os controllers implementam as interfaces e
+  convertem com `controller/mapper/ApiMapper`. Rota nova começa no contrato; `ApiContractTest` falha se
+  o backend publicar rota fora dele.
+- Não exponha entidades JPA nem records de domínio na API; use os DTOs gerados.
 - Erros saem como RFC 7807 (`ProblemDetail`): 400 validação (com `errors` por campo), 404 não
   encontrado, 409 regra de negócio, 503 dependência externa fora.
 - Schema só muda por migration Flyway nova em `src/main/resources/db/migration` (`V<n>__descricao.sql`);
@@ -141,6 +147,8 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
 
 - `src/api/`: cliente `fetch` tipado (`client.ts`, que lança `ApiError` com os erros por campo) e funções
   por recurso (`trips.ts`). Componentes nunca chamam `fetch` direto.
+- Os tipos da API vêm do contrato: `schema.d.ts` é gerado por `npm run generate:api` (não edite) e
+  `types.ts` só dá nomes a eles. O CI falha se `schema.d.ts` estiver desatualizado.
 - Dados do servidor via TanStack Query (chaves em `tripKeys`); estado de filtro/página na URL.
 - Rotas em `main.tsx`; páginas em `src/pages/`, componentes reutilizáveis em `src/components/`.
 - Autenticação em `src/auth/` (`react-oidc-context`): `RequireAuth` protege o layout, e `client.ts` anexa
@@ -160,7 +168,8 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
   E2E em `e2e/`, simulando só a geocodificação.
 - O CI (`.github/workflows/ci.yml`) e as varreduras (`security.yml`: gitleaks, Trivy, CodeQL; ZAP no
   E2E) precisam passar antes do merge.
-- Java: Lombok só em entidades JPA; prefira `record` para DTOs e domínio.
+- Java: Lombok só em entidades JPA; prefira `record` para o domínio e a aplicação (os DTOs da API são
+  gerados do contrato).
 - Python: tipagem com Pydantic `Field` para validar entradas.
 
 ## Segurança (regras não negociáveis)

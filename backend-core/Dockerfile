@@ -4,6 +4,9 @@ WORKDIR /app
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 COPY src/ src/
+# Contrato da API (ADR 0009): as interfaces e os DTOs são gerados dele no build.
+# Contexto extra "contracts" (compose: additional_contexts; docker build: --build-context contracts=contracts)
+COPY --from=contracts api/ /contracts/api/
 RUN ./mvnw -B -q clean package -DskipTests
 
 # Estágio 2: runtime só com JRE, usuário sem privilégios
