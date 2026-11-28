@@ -13,8 +13,11 @@ O backend original misturava regras de negócio com JPA, HTTP e a chamada ao ai-
 
 Cada contexto do backend segue portas e adapters:
 
+Desde a R3, as três camadas ficam **dentro de cada módulo** (`trip/domain`, `trip/application`...,
+[ADR 0004](0004-monolito-modular.md)), e o `HexagonalArchitectureTest` (ArchUnit) verifica as regras.
+
 - `domain/`: records imutáveis que validam invariantes no construtor, sem Spring, JPA ou Jackson.
-- `application/`: casos de uso e portas de saída (`port/out`); não importa `infrastructure`.
+- `application/`: casos de uso e portas de saída; não importa `infrastructure`.
 - `infrastructure/`: adapters que implementam as portas (JPA, REST, ai-engine, Nominatim, segurança).
 - A API expõe DTOs, nunca entidades JPA nem records de domínio. `Clock` é injetado.
 

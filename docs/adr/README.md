@@ -14,7 +14,7 @@ Regras:
 | [0001](0001-registrar-decisoes-em-adr.md) | Registrar decisões de arquitetura em ADRs | Aceita |
 | [0002](0002-spec-driven-development.md) | Desenvolvimento orientado a especificação (SDD) | Aceita |
 | [0003](0003-arquitetura-hexagonal.md) | Arquitetura hexagonal no backend-core | Aceita |
-| [0004](0004-monolito-modular.md) | Monólito modular com critérios de extração de serviço | Aceita |
+| [0004](0004-monolito-modular.md) | Monólito modular com critérios de extração de serviço | Aceita (implementada na R3) |
 | [0005](0005-keycloak-oidc-pkce.md) | Identidade com Keycloak (OIDC + PKCE) e API como resource server | Aceita |
 | [0006](0006-ai-engine-servico-separado.md) | Inferência de ETA em serviço Python separado | Aceita |
 | [0007](0007-excecoes-de-cve-com-expiracao.md) | Exceções de CVE só com justificativa e expiração | Aceita |

@@ -80,6 +80,13 @@ ai-engine ([spec 003](../003-eta-inference/spec.md)); se ele estiver fora, o des
 - **TRIP-013** — O histórico de auditoria de uma viagem deve ser lido em
   `GET /api/v1/audit/trips/{id}`, do mais recente para o mais antigo.
 
+### Eventos
+
+- **TRIP-014** — Quando uma viagem é criada ou muda de status, o sistema deve publicar o evento
+  `TripCreated` ou `TripStatusChanged` na mesma transação, com o id da viagem, o status (anterior e novo,
+  na mudança) e as datas, e nunca com coordenadas nem rótulos de endereço. Transição recusada não publica
+  evento. Os consumidores (notificações, #43) recebem depois do commit, pelo outbox (ADR 0004).
+
 ### Segurança e acesso
 
 - **TRIP-020** — Somente `ADMIN` e `DISPATCHER` devem acessar `/api/v1/trips/**`; os demais perfis

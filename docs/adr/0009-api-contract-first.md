@@ -16,15 +16,16 @@ revisado junto do plano, antes do código.
 - O contrato da API fica em `contracts/api/openapi.yaml`, escrito antes do código. Usa **OpenAPI
   3.0.3**: o suporte a 3.1 do openapi-generator ainda é parcial (nulos como `type: [x, "null"]`), e
   3.0.3 atende o que a API precisa.
-- O backend gera as interfaces dos controllers (`controller/api`) e os DTOs (`controller/dto`, sufixo
+- O backend gera as interfaces dos controllers (`com.logistics.logistics.api`) e os DTOs (`api.dto`, sufixo
   `DTO`) com o `openapi-generator-maven-plugin` (`interfaceOnly`), em `target/generated-sources`, sem
-  versionar. Os controllers implementam as interfaces, e `controller/mapper/ApiMapper` converte entre os
-  DTOs e o domínio. O gerador produz classes, não records: é a exceção à preferência por records.
+  versionar. Os controllers implementam as interfaces, e o mapper de cada módulo (`TripApiMapper`,
+  `AuditApiMapper`) converte entre os DTOs e o domínio. O gerador produz classes, não records: é a
+  exceção à preferência por records.
 - Validações sem equivalente no OpenAPI entram como extensão do gerador no próprio contrato, por exemplo
   `x-field-extra-annotation: '@jakarta.validation.constraints.Future'`.
 - `ApiContractTest` compara as rotas publicadas pelo backend com as operações do contrato: rota escrita
-  à mão fora do contrato falha o build. `ApiMapperTest` confere que os enums do contrato e do domínio
-  têm os mesmos valores.
+  à mão fora do contrato falha o build. `TripApiMapperTest` e `AuditApiMapperTest` conferem que os enums
+  do contrato e do domínio têm os mesmos valores.
 - O frontend gera `src/api/schema.d.ts` com `openapi-typescript` (`npm run generate:api`), versionado;
   `src/api/types.ts` só dá nomes aos tipos gerados. O CI falha se o arquivo gerado estiver desatualizado.
 - O CI roda `oasdiff breaking` contra a branch de destino e falha em quebra de compatibilidade, a menos
