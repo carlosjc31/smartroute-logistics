@@ -25,6 +25,7 @@ class TripPersistenceAdapterTest {
 
   @Autowired TripPersistenceAdapter adapter;
 
+  // @req TRIP-005
   @Test
   void savesLoadsAndPagesTrips() {
     OffsetDateTime departure = OffsetDateTime.of(2030, 1, 1, 8, 0, 0, 0, ZoneOffset.ofHours(-3));

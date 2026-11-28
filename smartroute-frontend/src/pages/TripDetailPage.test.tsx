@@ -7,6 +7,7 @@ import { aTrip, jsonResponse, mockFetch, renderRoute } from '../test/utils'
 const renderDetail = () => renderRoute('/trips/trip-1', [{ path: '/trips/:id', element: <TripDetailPage /> }])
 
 describe('TripDetailPage', () => {
+  // @req TRIP-006
   it('mostra a chegada prevista e o modelo usado', async () => {
     mockFetch(() => jsonResponse(aTrip()))
     renderDetail()
@@ -16,6 +17,7 @@ describe('TripDetailPage', () => {
     expect(screen.queryByText(/estimativa heurística/)).not.toBeInTheDocument()
   })
 
+  // @req TRIP-004
   it('sinaliza quando a previsão veio do fallback', async () => {
     mockFetch(() => jsonResponse(aTrip({ eta: { source: 'FALLBACK', modelVersion: 'fallback-heuristic-v1' } })))
     renderDetail()
@@ -23,6 +25,7 @@ describe('TripDetailPage', () => {
     expect(await screen.findByText(/estimativa heurística/)).toBeInTheDocument()
   })
 
+  // @req TRIP-007
   it('oferece só as transições permitidas e envia a escolhida', async () => {
     const calls = mockFetch((_url, init) =>
       init?.method === 'PATCH'
@@ -41,6 +44,7 @@ describe('TripDetailPage', () => {
     expect(JSON.parse(String(patch?.init?.body))).toEqual({ status: 'IN_TRANSIT' })
   })
 
+  // @req TRIP-007
   it('não mostra ações para viagens finalizadas', async () => {
     mockFetch(() => jsonResponse(aTrip({ status: 'COMPLETED', allowedTransitions: [] })))
     renderDetail()
@@ -49,6 +53,7 @@ describe('TripDetailPage', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
+  // @req TRIP-006
   it('mostra erro quando a viagem não existe', async () => {
     mockFetch(() => jsonResponse({ detail: 'Viagem não encontrada' }, 404))
     renderDetail()

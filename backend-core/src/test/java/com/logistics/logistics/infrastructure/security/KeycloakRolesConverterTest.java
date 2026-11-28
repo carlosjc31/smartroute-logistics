@@ -23,6 +23,7 @@ class KeycloakRolesConverterTest {
     return builder.build();
   }
 
+  // @req SEC-002
   @Test
   void mapsKnownRealmRolesToAuthorities() {
     Jwt jwt = token(Map.of("realm_access", Map.of("roles", List.of("DISPATCHER", "offline_access", "ADMIN"))));
@@ -31,12 +32,14 @@ class KeycloakRolesConverterTest {
         .containsExactlyInAnyOrder("ROLE_DISPATCHER", "ROLE_ADMIN");
   }
 
+  // @req SEC-002
   @Test
   void tokenWithoutRolesHasNoAuthorities() {
     assertThat(converter.convert(token(Map.of("scope", "openid")))).isEmpty();
     assertThat(converter.convert(token(Map.of("realm_access", Map.of("roles", "ADMIN"))))).isEmpty();
   }
 
+  // @req SEC-003
   @Test
   void actorIsPreferredUsernameThenSubjectThenSystem() {
     SecurityContextActorAdapter actor = new SecurityContextActorAdapter();
@@ -54,6 +57,7 @@ class KeycloakRolesConverterTest {
     }
   }
 
+  // @req SEC-010
   @Test
   void rejectsWildcardCorsOrigin() {
     org.assertj.core.api.Assertions.assertThatThrownBy(() -> new SecurityProperties(List.of("*"), null))

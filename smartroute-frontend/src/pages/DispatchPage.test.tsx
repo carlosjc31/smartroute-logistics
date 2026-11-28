@@ -26,6 +26,7 @@ async function fillForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('DispatchPage', () => {
+  // @req TRIP-009
   it('localiza as cidades, cria a viagem e abre o detalhe', async () => {
     const calls = mockFetch((url, init) => {
       if (url.pathname === '/api/v1/geocode') {
@@ -58,6 +59,7 @@ describe('DispatchPage', () => {
     })
   })
 
+  // @req TRIP-009
   it('desabilita o botão enquanto calcula', async () => {
     let release: (r: Response) => void = () => {}
     mockFetch((url) =>
@@ -76,6 +78,7 @@ describe('DispatchPage', () => {
     release(jsonResponse(aTrip(), 201))
   })
 
+  // @req TRIP-002
   it('mostra a mensagem e os erros por campo devolvidos pela API', async () => {
     mockFetch((url) =>
       url.pathname === '/api/v1/geocode'
@@ -93,6 +96,7 @@ describe('DispatchPage', () => {
     expect(screen.getByRole('button', { name: 'Calcular rota com IA' })).toBeEnabled()
   })
 
+  // @req GEO-002
   it('avisa quando uma cidade não é encontrada', async () => {
     mockFetch(() => jsonResponse({ title: 'Not Found', detail: 'Local não encontrado: Atlântida' }, 404))
     const user = userEvent.setup()

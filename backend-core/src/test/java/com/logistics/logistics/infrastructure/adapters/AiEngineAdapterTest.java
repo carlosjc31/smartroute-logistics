@@ -48,6 +48,7 @@ class AiEngineAdapterTest {
     adapter = new AiEngineAdapter(builder.build(), CircuitBreakerRegistry.ofDefaults(), retries);
   }
 
+  // @req TRIP-003
   @Test
   void mapsSuccessfulPrediction() {
     server.expect(requestTo("http://ai-engine/predict/eta"))
@@ -66,6 +67,7 @@ class AiEngineAdapterTest {
     assertThat(prediction.source()).isEqualTo(EtaSource.MODEL);
   }
 
+  // @req TRIP-004
   @Test
   void retriesServerErrorsThenReportsUnavailable() {
     server.expect(times(2), requestTo("http://ai-engine/predict/eta")).andRespond(withServerError());

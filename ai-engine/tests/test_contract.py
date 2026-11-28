@@ -19,6 +19,7 @@ def json_type(value):
     return type(value).__name__
 
 
+# @req ETA-001, ETA-005
 def test_request_sent_by_backend_is_accepted(client):
     request = load("predict-eta.request.json")
 
@@ -26,6 +27,7 @@ def test_request_sent_by_backend_is_accepted(client):
     assert client.post("/predict/eta", json=request).status_code == 200
 
 
+# @req ETA-001, ETA-005
 def test_response_matches_what_backend_reads(client):
     expected = load("predict-eta.response.json")
 

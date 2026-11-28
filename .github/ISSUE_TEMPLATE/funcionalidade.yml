@@ -1,0 +1,40 @@
+name: Funcionalidade
+description: Proponha uma funcionalidade ou mudança de comportamento (vira uma spec em specs/)
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Funcionalidades seguem o fluxo de Spec-Driven Development (`specs/README.md`): esta issue
+        descreve o problema; os requisitos detalhados ficam na spec, revisada antes do código.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema
+      description: Quem tem o problema, qual é, e por que resolver agora.
+    validations:
+      required: true
+  - type: textarea
+    id: resultado
+    attributes:
+      label: Resultado esperado
+      description: O que precisa ser verdade quando estiver pronto (comportamento observável).
+    validations:
+      required: true
+  - type: textarea
+    id: fora
+    attributes:
+      label: Fora do escopo
+  - type: dropdown
+    id: dados-pessoais
+    attributes:
+      label: Trata dados pessoais?
+      description: Motoristas, clientes, localização, documentos. Se sim, a spec precisa da seção LGPD.
+      options: ["Não", "Sim", "Não sei"]
+    validations:
+      required: true
+  - type: input
+    id: spec
+    attributes:
+      label: Spec
+      description: "Caminho da spec, quando já existir (por exemplo, specs/005-multi-tenant/)."

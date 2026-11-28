@@ -36,6 +36,7 @@ class AuditServiceTest {
   private final InMemoryAuditLog log = new InMemoryAuditLog();
   private final AuditService service = new AuditService(log, () -> "bruno.admin", Clock.fixed(NOW, ZoneOffset.UTC));
 
+  // @req TRIP-010
   @Test
   void recordsActorTimestampAndStates() {
     Trip inTransit = TRIP.transitionTo(TripStatus.IN_TRANSIT, OffsetDateTime.now());
@@ -51,6 +52,7 @@ class AuditServiceTest {
     assertThat(entry.after()).containsEntry("status", "IN_TRANSIT").containsEntry("payloadWeight", 12.0);
   }
 
+  // @req TRIP-011
   @Test
   void snapshotNeverContainsCoordinatesOrAddresses() {
     service.recordTripChange(AuditAction.TRIP_CREATED, null, TRIP);
@@ -61,6 +63,7 @@ class AuditServiceTest {
     assertThat(log.entries.get(0).before()).isNull();
   }
 
+  // @req TRIP-013
   @Test
   void returnsHistoryFromPort() {
     service.recordTripChange(AuditAction.TRIP_CREATED, null, TRIP);
@@ -71,6 +74,7 @@ class AuditServiceTest {
     assertThat(service.tripHistory(UUID.randomUUID(), 0, 10).items()).isEmpty();
   }
 
+  // @req TRIP-010
   @Test
   void entryRequiresMandatoryFields() {
     assertThatThrownBy(() -> new AuditEntry(UUID.randomUUID(), null, "x", AuditAction.TRIP_CREATED, "TRIP",

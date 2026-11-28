@@ -20,6 +20,7 @@ const PLACES: Record<string, { lat: number; lng: number }> = {
   destino: { lat: -22.9068, lng: -43.1729 },
 }
 
+// @req TRIP-009, TRIP-007, TRIP-005
 test('despacha uma viagem, acompanha o status e encontra na lista', async ({ page }) => {
   const runId = Date.now().toString(36)
   const origin = `Origem E2E ${runId}`

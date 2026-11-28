@@ -13,7 +13,7 @@ Monorepo com três serviços:
 
 | Pasta | Stack | Responsabilidade |
 |---|---|---|
-| `backend-core/` | Java 21, Spring Boot 3.3, JPA, Flyway, PostgreSQL 15 | API REST de viagens e geocodificação; orquestra a IA e persiste |
+| `backend-core/` | Java 21, Spring Boot 3.5, JPA, Flyway, PostgreSQL 15 | API REST de viagens e geocodificação; orquestra a IA e persiste |
 | `ai-engine/` | Python 3.12, FastAPI, scikit-learn | Inferência de ETA (`RandomForestRegressor`) |
 | `smartroute-frontend/` | React 19, TypeScript, Vite, React Router, TanStack Query | Painel de despacho |
 
@@ -21,6 +21,25 @@ Fluxo: o usuário entra pelo Keycloak (OIDC + PKCE) e o frontend envia o JWT em 
 `POST /api/v1/trips` → backend calcula a distância (Haversine) e chama `POST /predict/eta` no ai-engine →
 grava a viagem com `predictedArrival` e um registro em `audit_log`. Se o ai-engine falhar, usa a
 estimativa heurística do domínio (`eta.source = FALLBACK`).
+
+## Spec-Driven Development (leia antes de mudar comportamento)
+
+- Toda funcionalidade nova ou mudança de comportamento começa por uma spec em `specs/NNN-nome/`
+  (`spec.md` → aprovação do mantenedor → `plan.md` + `tasks.md` → código). Fluxo e status em
+  `specs/README.md`; princípios não negociáveis em `specs/constitution.md`.
+- Não implemente sem spec `approved`. Se a spec não cobre o caso ou o contradiz, pare e proponha a
+  alteração da spec em vez de divergir.
+- Skills do projeto: `/spec-new` (escreve a spec), `/spec-plan` (plano e tasks de uma spec aprovada),
+  `/spec-implement` (executa as tasks). Subagente `spec-reviewer` revisa spec, plano ou diff contra a
+  constituição antes da aprovação ou do PR.
+- Todo teste que cobre um requisito leva `@req ID` em comentário (`// @req TRIP-004`, `# @req ETA-001`).
+  `python3 scripts/check_spec_traceability.py` (também no CI) falha se uma spec `implemented` tiver
+  requisito sem teste ou se um `@req` apontar para requisito inexistente; `--report` mostra o mapa.
+- Decisões de arquitetura ficam em `docs/adr/` (formato em `docs/adr/template.md`). Leia as ADRs antes
+  de propor mudança estrutural; decisão nova vira ADR nova, a antiga é marcada como substituída.
+- Reestruturação em andamento antes da Fase 4: R1 (SDD e ADRs), R2 (API contract-first, ADR 0009),
+  R3 (monólito modular com Spring Modulith, ADR 0004), R4 (ai-engine em pacote e frontend por
+  funcionalidade).
 
 ## Comandos
 
@@ -43,6 +62,9 @@ uv pip install -r requirements.txt   # ou pip
 SERVICE_TOKEN=dev-local-token python main.py   # http://localhost:8000/docs (sem token não sobe)
 pip install -r requirements-dev.txt && pytest   # testes (API, contrato, qualidade do modelo)
 python generate_data.py && python train_model.py   # regera dataset sintético e modelo
+
+# specs
+python3 scripts/check_spec_traceability.py   # requisitos ↔ testes (@req); --report para o mapa
 
 # frontend
 cd smartroute-frontend
@@ -131,9 +153,9 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
 - **Branches:** `tipo/descricao-curta`: `feat/`, `fix/`, `refactor/`, `test/`, `security/`, `chore/`, `docs/`.
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`),
   referenciando a issue (`Closes #N`).
-- **PRs:** um PR por fase/etapa do roadmap, descrevendo como foi testado.
+- **PRs:** um PR por fase/etapa do roadmap, descrevendo como foi testado e quais requisitos (IDs da spec) cobre. Mudança de comportamento atualiza a spec no mesmo PR.
 - Correção de bug vem com teste que falharia antes da correção sempre que possível.
-- Testes: unitários em `*Test` (surefire); os que exigem Docker em `*IT` (failsafe, `./mvnw verify`).
+- Testes: unitários em `*Test` (surefire); os que exigem Docker em `*IT` (failsafe, `./mvnw verify`); marque cada teste com o requisito que cobre (`@req`).
   No frontend, `*.test.tsx` ao lado do código, usando `src/test/utils.tsx` (`renderRoute`, `mockFetch`);
   E2E em `e2e/`, simulando só a geocodificação.
 - O CI (`.github/workflows/ci.yml`) e as varreduras (`security.yml`: gitleaks, Trivy, CodeQL; ZAP no

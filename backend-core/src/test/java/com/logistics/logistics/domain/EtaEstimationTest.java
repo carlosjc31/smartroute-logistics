@@ -20,6 +20,7 @@ class EtaEstimationTest {
         OffsetDateTime.of(2030, 1, 1, departureHour, 0, 0, 0, BRT), OffsetDateTime.now(ZoneOffset.UTC));
   }
 
+  // @req TRIP-004
   @ParameterizedTest(name = "saída às {0}h: pico = {1}")
   @CsvSource({ "6,false", "7,true", "9,true", "10,false", "16,false", "17,true", "19,true", "20,false" })
   void heuristicUsesLocalDepartureHourForPeak(int hour, boolean peak) {
@@ -34,6 +35,7 @@ class EtaEstimationTest {
     assertThat(eta.confidence()).isNull();
   }
 
+  // @req TRIP-004
   @Test
   void heuristicAddsDelayProportionalToWeight() {
     Trip empty = trip(0.0, 12);
@@ -42,6 +44,7 @@ class EtaEstimationTest {
     assertThat(ratio).isCloseTo(1.10, within(1e-9));
   }
 
+  // @req TRIP-003
   @Test
   void arrivalRoundsToNearestMinuteAndKeepsOffset() {
     Trip trip = trip(10.0, 8);
@@ -52,6 +55,7 @@ class EtaEstimationTest {
     assertThat(trip.estimateArrival(2.0).getOffset()).isEqualTo(BRT);
   }
 
+  // @req TRIP-003
   @Test
   void rejectsInvalidDurations() {
     Trip trip = trip(10.0, 8);
@@ -62,6 +66,7 @@ class EtaEstimationTest {
     assertThatThrownBy(() -> new EtaPrediction(1, null, "v", null)).isInstanceOf(IllegalArgumentException.class);
   }
 
+  // @req TRIP-002
   @Test
   void rejectsNegativeWeightAndMissingFields() {
     assertThatThrownBy(() -> trip(-1.0, 8)).isInstanceOf(IllegalArgumentException.class);
@@ -71,6 +76,7 @@ class EtaEstimationTest {
         null, OffsetDateTime.now())).isInstanceOf(IllegalArgumentException.class);
   }
 
+  // @req TRIP-008
   @Test
   void transitionsKeepPredictionAndOnlyCompletionSetsArrival() {
     OffsetDateTime later = OffsetDateTime.of(2030, 1, 1, 12, 0, 0, 0, BRT);

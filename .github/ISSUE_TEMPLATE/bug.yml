@@ -1,0 +1,28 @@
+name: Bug
+description: Comportamento diferente do especificado
+labels: [bug]
+body:
+  - type: textarea
+    id: comportamento
+    attributes:
+      label: O que acontece
+      description: Não inclua dados pessoais reais, tokens nem senhas.
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que deveria acontecer
+    validations:
+      required: true
+  - type: input
+    id: requisito
+    attributes:
+      label: Requisito violado
+      description: "ID do requisito na spec, se souber (por exemplo, TRIP-007)."
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir
+    validations:
+      required: true

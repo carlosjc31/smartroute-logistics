@@ -13,6 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  specs:
+    name: Specs (rastreabilidade requisito ↔ teste)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Spec implemented com requisito sem teste @req, ou @req para requisito inexistente, falha o PR
+      - run: python3 scripts/check_spec_traceability.py --report
+
   backend:
     name: backend-core (Maven verify)
     runs-on: ubuntu-latest

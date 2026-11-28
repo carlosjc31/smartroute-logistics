@@ -16,18 +16,21 @@ class CoordinatesTest {
     assertThatThrownBy(() -> new Coordinates(lat, lng)).isInstanceOf(IllegalArgumentException.class);
   }
 
+  // @req TRIP-002
   @Test
   void rejectsMissingValues() {
     assertThatThrownBy(() -> new Coordinates(null, 0.0)).isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new Coordinates(0.0, null)).isInstanceOf(IllegalArgumentException.class);
   }
 
+  // @req TRIP-002
   @Test
   void acceptsBoundaries() {
     new Coordinates(-90.0, -180.0);
     new Coordinates(90.0, 180.0);
   }
 
+  // @req TRIP-003
   @Test
   void distanceIsSymmetricAndZeroToItself() {
     Coordinates sp = new Coordinates(-23.5505, -46.6333);
@@ -37,6 +40,7 @@ class CoordinatesTest {
     assertThat(sp.distanceKmTo(bh)).isCloseTo(490, within(5.0));
   }
 
+  // @req TRIP-003
   @Test
   void antipodalPointsAreHalfTheEarthCircumferenceApart() {
     double distance = new Coordinates(0.0, 0.0).distanceKmTo(new Coordinates(0.0, 180.0));

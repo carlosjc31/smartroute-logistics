@@ -41,6 +41,7 @@ class AiEngineContractTest {
     return JSON.readTree(Files.readString(CONTRACTS.resolve(file)));
   }
 
+  // @req ETA-005
   @Test
   void requestSentByBackendMatchesContract() throws IOException {
     RestClient.Builder builder = RestClient.builder().baseUrl("http://ai-engine");
@@ -59,6 +60,7 @@ class AiEngineContractTest {
     assertSameShape(sent.get("body"), contract("predict-eta.request.json"));
   }
 
+  // @req ETA-005
   @Test
   void contractResponseMapsToEveryPredictionField() throws IOException {
     RestClient.Builder builder = RestClient.builder().baseUrl("http://ai-engine");
@@ -78,6 +80,7 @@ class AiEngineContractTest {
     assertThat(prediction.modelVersion()).isEqualTo(expected.get("model_version").asText());
   }
 
+  // @req ETA-005
   @Test
   void responseHasNoFieldUnknownToBackend() throws Exception {
     // Um campo renomeado no ai-engine (ex.: "cofidence_score") falha aqui em vez de virar null em silêncio.

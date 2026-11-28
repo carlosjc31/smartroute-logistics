@@ -8,6 +8,7 @@ from generate_data import build_dataset
 MAX_MAE_HOURS = 0.5
 
 
+# @req ETA-020
 def test_model_error_below_threshold():
     holdout = build_dataset(n_samples=1000, seed=2024)  # semente diferente da usada no treino (42)
     features = holdout.drop(columns="delivery_time_hours")

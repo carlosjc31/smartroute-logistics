@@ -30,6 +30,7 @@ describe('RequireAuth', () => {
     window.history.replaceState({}, '', '/trips?status=PENDING')
   })
 
+  // @req SEC-030
   it('mostra o painel para usuário autenticado', () => {
     mockAuth({ isAuthenticated: true })
 
@@ -39,6 +40,7 @@ describe('RequireAuth', () => {
     expect(signinRedirect).not.toHaveBeenCalled()
   })
 
+  // @req SEC-030
   it('redireciona ao login guardando a página atual', () => {
     mockAuth({ isAuthenticated: false })
 
@@ -50,6 +52,7 @@ describe('RequireAuth', () => {
     expect(signinRedirect).toHaveBeenCalledWith({ state: { returnTo: '/trips?status=PENDING' } })
   })
 
+  // @req SEC-030
   it('não redireciona enquanto a sessão está carregando', () => {
     mockAuth({ isLoading: true })
 
@@ -58,6 +61,7 @@ describe('RequireAuth', () => {
     expect(signinRedirect).not.toHaveBeenCalled()
   })
 
+  // @req SEC-030
   it('mostra o erro do login e permite tentar de novo', async () => {
     mockAuth({ error: new Error('Network Error') as AuthContextProps['error'] })
 
@@ -71,6 +75,7 @@ describe('RequireAuth', () => {
 })
 
 describe('UserMenu', () => {
+  // @req SEC-030
   it('mostra o usuário e faz logout', async () => {
     mockAuth({
       isAuthenticated: true,

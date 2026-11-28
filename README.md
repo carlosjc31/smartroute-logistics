@@ -5,7 +5,7 @@
 **Despacho de cargas com previsão de chegada (ETA) por machine learning**
 
 [![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/)
@@ -61,7 +61,7 @@ flowchart LR
 
 | Serviço | Stack | Responsabilidade |
 |---|---|---|
-| [`backend-core`](backend-core) | Java 21, Spring Boot 3.3, JPA, Flyway, Resilience4j | API de viagens, regras de negócio, orquestração da IA e persistência |
+| [`backend-core`](backend-core) | Java 21, Spring Boot 3.5, JPA, Flyway, Resilience4j | API de viagens, regras de negócio, orquestração da IA e persistência |
 | [`ai-engine`](ai-engine) | Python 3.12, FastAPI, scikit-learn | Inferência de ETA com `RandomForestRegressor` |
 | [`smartroute-frontend`](smartroute-frontend) | React 19, TypeScript, Vite, React Router, TanStack Query | Painel de despacho |
 
@@ -245,6 +245,7 @@ A evolução do projeto está organizada em fases, acompanhadas pelas
 | 1 | Arquitetura e API | Hexagonal, Flyway, resiliência, API completa, frontend em TypeScript ✅ |
 | 2 | Testes e CI | Testes de contrato, E2E, GitHub Actions ✅ |
 | 3 | Segurança e LGPD | OAuth2/Keycloak, perfis de acesso, auditoria, varreduras de segurança ✅ · LGPD em andamento |
+| R | Reestruturação | Spec-Driven Development e ADRs (R1), API contract-first (R2), monólito modular (R3), ai-engine e frontend por funcionalidade (R4) |
 | 4 | Domínio logístico | Multi-tenant, frota, motoristas, pedidos, múltiplas paradas, rastreamento |
 | 5 | Roteirização e ML | Rotas por estrada (OSRM), otimização (VRP), clima real, MLOps |
 | 6 | Agentes de IA | Copiloto do despachante, agente de exceções, servidor MCP |
@@ -252,10 +253,18 @@ A evolução do projeto está organizada em fases, acompanhadas pelas
 
 ## Contribuindo
 
+O projeto segue **Spec-Driven Development**: toda funcionalidade começa por uma especificação revisada
+antes do código ([`specs/`](specs/README.md)), dentro dos princípios da [constituição](specs/constitution.md).
+As decisões de arquitetura ficam em [`docs/adr/`](docs/adr/README.md).
+
 1. Escolha ou abra uma [issue](https://github.com/carlosjc31/smartroute-logistics/issues).
-2. Crie uma branch a partir de `main` no formato `tipo/descricao-curta` (`feat/`, `fix/`, `docs/`...).
-3. Use [Conventional Commits](https://www.conventionalcommits.org/pt-br/) e referencie a issue.
-4. Abra um pull request descrevendo a mudança e como ela foi testada.
+2. Escreva ou atualize a spec em `specs/NNN-nome/` e aguarde a aprovação. Correções de bug que restauram
+   um comportamento já especificado dispensam esta etapa.
+3. Crie uma branch a partir de `main` no formato `tipo/descricao-curta` (`feat/`, `fix/`, `docs/`...).
+4. Marque os testes com o requisito que cobrem (`// @req TRIP-001`) e rode
+   `python3 scripts/check_spec_traceability.py`.
+5. Use [Conventional Commits](https://www.conventionalcommits.org/pt-br/) e referencie a issue.
+6. Abra um pull request descrevendo a mudança, os requisitos cobertos e como foi testado.
 
 As convenções de código, a arquitetura e as regras de segurança estão em [`CLAUDE.md`](CLAUDE.md), que
 também orienta agentes de IA que trabalham no repositório.

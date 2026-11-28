@@ -13,6 +13,7 @@ describe('request', () => {
     expect(new Headers(calls[0]?.init?.headers).get('Content-Type')).toBe('application/json')
   })
 
+  // @req SEC-032
   it('converte um ProblemDetail em ApiError com os erros por campo', async () => {
     mockFetch(() =>
       jsonResponse({ title: 'Bad Request', detail: 'Dados inválidos', errors: { payloadWeight: 'deve ser maior que 0' } }, 400),
@@ -24,12 +25,14 @@ describe('request', () => {
     expect(error).toMatchObject({ status: 400, message: 'Dados inválidos', fieldErrors: { payloadWeight: 'deve ser maior que 0' } })
   })
 
+  // @req SEC-032
   it('usa uma mensagem genérica quando o erro não tem corpo', async () => {
     mockFetch(() => new Response('', { status: 502 }))
 
     await expect(request('/api/v1/trips')).rejects.toMatchObject({ status: 502, message: 'Erro 502' })
   })
 
+  // @req SEC-032
   it('informa falha de conexão', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
@@ -55,6 +58,7 @@ describe('autenticação', () => {
 
   afterEach(() => sessionStorage.clear())
 
+  // @req SEC-031
   it('envia o token do usuário logado no header Authorization', async () => {
     storeUser(300)
     const calls = mockFetch(() => jsonResponse({}))
@@ -64,6 +68,7 @@ describe('autenticação', () => {
     expect(new Headers(calls[0]?.init?.headers).get('Authorization')).toBe('Bearer token-de-acesso')
   })
 
+  // @req SEC-031
   it('não envia token expirado nem quando não há sessão', async () => {
     const calls = mockFetch(() => jsonResponse({}))
 
@@ -74,6 +79,7 @@ describe('autenticação', () => {
     expect(calls.map((c) => new Headers(c.init?.headers).has('Authorization'))).toEqual([false, false])
   })
 
+  // @req SEC-032
   it('transforma 401 da API em ApiError com a mensagem do servidor', async () => {
     mockFetch(() => jsonResponse({ title: 'Não autenticado', detail: 'Faça login para acessar este recurso.' }, 401))
 
