@@ -1,5 +1,5 @@
 # Estágio 1: build
-FROM eclipse-temurin:21-jdk-noble AS build
+FROM eclipse-temurin:25-jdk-noble AS build
 WORKDIR /app
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
@@ -10,7 +10,7 @@ COPY --from=contracts api/ /contracts/api/
 RUN ./mvnw -B -q clean package -DskipTests
 
 # Estágio 2: runtime só com JRE, usuário sem privilégios
-FROM eclipse-temurin:21-jre-noble
+FROM eclipse-temurin:25-jre-noble
 RUN groupadd --system --gid 10001 spring && useradd --system --uid 10001 --gid spring --no-create-home spring
 WORKDIR /app
 COPY --from=build --chown=root:root /app/target/*.jar app.jar
