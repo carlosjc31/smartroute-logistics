@@ -10,7 +10,7 @@ x-hardening: &hardening
 services:
   db:
     <<: *hardening
-    image: postgres:15.10-alpine
+    image: postgres:19.0-alpine
     container_name: smart-logistics-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logistics_db}
