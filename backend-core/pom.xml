@@ -21,7 +21,7 @@
     <zonky.version>2.8.0</zonky.version>
     <zonky.postgres.version>2.0.7</zonky.postgres.version>
     <wiremock.version>3.9.1</wiremock.version>
-    <jacoco.version>0.8.12</jacoco.version>
+    <jacoco.version>0.8.16</jacoco.version>
     <spring-modulith.version>1.4.14</spring-modulith.version>
     <openapi-generator.version>7.28.0</openapi-generator.version>
     <bucket4j.version>8.10.1</bucket4j.version>
