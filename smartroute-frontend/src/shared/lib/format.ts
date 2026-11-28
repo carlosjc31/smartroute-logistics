@@ -1,13 +1,3 @@
-import type { TripStatus } from '../api/types'
-
-export const STATUS_LABELS: Record<TripStatus, string> = {
-  PENDING: 'Pendente',
-  IN_TRANSIT: 'Em trânsito',
-  DELAYED: 'Atrasada',
-  COMPLETED: 'Concluída',
-  CANCELLED: 'Cancelada',
-}
-
 const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
 export function formatDateTime(iso: string | null): string {

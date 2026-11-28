@@ -1,9 +1,10 @@
 import { Link, useSearchParams } from 'react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { listTrips, tripKeys } from '../api/trips'
-import { TRIP_STATUSES, type TripStatus } from '../api/types'
+import type { TripStatus } from '../../../shared/api/types'
+import { formatDateTime, placeLabel } from '../../../shared/lib/format'
+import { listTrips, tripKeys } from '../api'
 import { StatusBadge } from '../components/StatusBadge'
-import { formatDateTime, placeLabel, STATUS_LABELS } from '../lib/format'
+import { STATUS_LABELS, TRIP_STATUSES } from '../status'
 
 const PAGE_SIZE = 20
 

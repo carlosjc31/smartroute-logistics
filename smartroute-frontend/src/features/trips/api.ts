@@ -1,5 +1,5 @@
-import { request } from './client'
-import type { CreateTripRequest, GeocodeResult, Trip, TripPage, TripStatus } from './types'
+import { request } from '../../shared/api/client'
+import type { CreateTripRequest, Trip, TripPage, TripStatus } from '../../shared/api/types'
 
 export interface TripFilters {
   status?: TripStatus
@@ -32,8 +32,4 @@ export function updateTripStatus(id: string, status: TripStatus): Promise<Trip> 
     method: 'PATCH',
     body: JSON.stringify({ status }),
   })
-}
-
-export function geocode(query: string): Promise<GeocodeResult> {
-  return request(`/api/v1/geocode?${new URLSearchParams({ q: query })}`)
 }

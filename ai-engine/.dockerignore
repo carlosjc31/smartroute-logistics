@@ -2,7 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
-logistic_data.csv
+data/
+training/
 tests/
 requirements-dev.txt
 .env

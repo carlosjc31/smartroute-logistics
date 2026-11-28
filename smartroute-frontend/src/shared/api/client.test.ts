@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { User } from 'oidc-client-ts'
 import { ApiError, request } from './client'
 import { OIDC_AUTHORITY, OIDC_CLIENT_ID } from '../auth/config'
-import { jsonResponse, mockFetch } from '../test/utils'
+import { jsonResponse, mockFetch } from '../../test/utils'
 
 describe('request', () => {
   it('devolve o JSON da resposta e envia cabeçalhos JSON', async () => {

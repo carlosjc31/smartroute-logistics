@@ -51,8 +51,8 @@ seção `users` do realm** e crie os usuários pelo console ou por federação (
   no host.
 - Toda chamada a `/predict/eta` exige `Authorization: Bearer <AI_ENGINE_TOKEN>`, comparado em tempo
   constante. Sem `SERVICE_TOKEN`, o ai-engine nem sobe.
-- O modelo `.pkl` só é carregado se o SHA-256 bater com `delivery_model.pkl.sha256`, gerado pelo
-  `train_model.py`, ou com `MODEL_SHA256`. Um artefato adulterado deixa o serviço em `503`, e o
+- O modelo `.pkl` só é carregado se o SHA-256 bater com `models/delivery_model.pkl.sha256`, gerado pelo
+  `training/train_model.py`, ou com `MODEL_SHA256`. Um artefato adulterado deixa o serviço em `503`, e o
   backend usa a estimativa heurística.
 - Pendente na #31: trocar o pickle por um formato que não executa código (skops ou ONNX).
 

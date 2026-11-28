@@ -1,7 +1,5 @@
 import pytest
 
-import main
-
 
 # @req ETA-004
 def test_health_reports_model_loaded(client):
@@ -69,8 +67,8 @@ def test_rejects_missing_field(client, trip):
 
 
 # @req ETA-004
-def test_returns_503_without_model(client, trip, monkeypatch):
-    monkeypatch.setattr(main, "model", None)
+def test_returns_503_without_model(client, trip, replace_model):
+    replace_model(None)
 
     assert client.post("/predict/eta", json=trip).status_code == 503
     assert client.get("/health").json()["brain"] == "Offline"

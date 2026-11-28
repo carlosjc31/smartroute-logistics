@@ -1,0 +1,256 @@
+{
+  "components": {
+    "schemas": {
+      "EtaMetadata": {
+        "properties": {
+          "traffic_impact": {
+            "enum": [
+              "High",
+              "Normal"
+            ],
+            "title": "Traffic Impact",
+            "type": "string"
+          }
+        },
+        "required": [
+          "traffic_impact"
+        ],
+        "title": "EtaMetadata",
+        "type": "object"
+      },
+      "EtaResponse": {
+        "properties": {
+          "confidence_score": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence Score",
+            "type": "number"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/EtaMetadata"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "predicted_arrival_hours": {
+            "description": "Duração prevista em horas decimais (não truncar)",
+            "title": "Predicted Arrival Hours",
+            "type": "number"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicted_arrival_hours",
+          "confidence_score",
+          "model_version",
+          "status",
+          "metadata"
+        ],
+        "title": "EtaResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "brain": {
+            "enum": [
+              "Active",
+              "Offline"
+            ],
+            "title": "Brain",
+            "type": "string"
+          },
+          "status": {
+            "const": "online",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "brain"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "TripData": {
+        "properties": {
+          "distance": {
+            "description": "Distância em km",
+            "exclusiveMinimum": 0.0,
+            "title": "Distance",
+            "type": "number"
+          },
+          "hour_of_day": {
+            "description": "Hora local de saída",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour Of Day",
+            "type": "integer"
+          },
+          "is_rainy": {
+            "description": "1 se chove na saída",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Is Rainy",
+            "type": "integer"
+          },
+          "weight": {
+            "description": "Peso da carga em toneladas",
+            "minimum": 0.0,
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "distance",
+          "weight",
+          "hour_of_day",
+          "is_rainy"
+        ],
+        "title": "TripData",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "Smartroute AI Engine",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check"
+      }
+    },
+    "/predict/eta": {
+      "post": {
+        "operationId": "predict_eta_predict_eta_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripData"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtaResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token de serviço ausente ou inválido."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Erro na inferência (sem detalhes internos)."
+          },
+          "503": {
+            "description": "Cérebro de IA offline."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Predict Eta"
+      }
+    }
+  }
+}

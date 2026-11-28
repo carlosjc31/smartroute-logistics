@@ -1,5 +1,7 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from training.paths import DATASET
 
 def build_dataset(n_samples=5000, seed=42):
     """Gera viagens sintéticas com as regras de negócio do ETA (sem gravar em disco)."""
@@ -35,8 +37,9 @@ def build_dataset(n_samples=5000, seed=42):
 
 def generate_logistic_dataset(n_samples=5000):
     df = build_dataset(n_samples)
-    df.to_csv('logistic_data.csv', index=False)
-    print(f"Dataset com {n_samples} viagens gerado com sucesso!")
+    DATASET.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(DATASET, index=False)
+    print(f"Dataset com {n_samples} viagens gerado em {DATASET}")
 
 if __name__ == "__main__":
     generate_logistic_dataset()

@@ -7,15 +7,20 @@ from pathlib import Path
 
 import pytest
 
-import main
+from app.main import app as application
+from app.config import Settings
+from app.model import expected_hash, load_model
+
+AI_ENGINE_DIR = Path(__file__).resolve().parent.parent
+MODEL_PATH = application.state.settings.model_path
 
 
 # @req ETA-010
 def test_refuses_to_start_without_service_token():
     env = {key: value for key, value in os.environ.items() if key != "SERVICE_TOKEN"}
     result = subprocess.run(
-        [sys.executable, "-c", "import main"],
-        cwd=Path(main.__file__).parent, env=env, capture_output=True, text=True, timeout=120,
+        [sys.executable, "-c", "import app.main"],
+        cwd=AI_ENGINE_DIR, env=env, capture_output=True, text=True, timeout=120,
     )
 
     assert result.returncode != 0
@@ -44,12 +49,12 @@ def test_health_stays_public_for_orchestrators(anonymous_client):
 
 
 # @req ETA-012
-def test_inference_error_does_not_leak_details(client, trip, monkeypatch):
+def test_inference_error_does_not_leak_details(client, trip, replace_model):
     class Broken:
         def predict(self, _):
             raise ValueError("segredo interno /opt/modelo")
 
-    monkeypatch.setattr(main, "model", Broken())
+    replace_model(Broken())
 
     response = client.post("/predict/eta", json=trip)
 
@@ -59,38 +64,42 @@ def test_inference_error_does_not_leak_details(client, trip, monkeypatch):
 
 # @req ETA-011
 def test_bundled_model_matches_its_hash():
-    assert main.model is not None
-    assert main.expected_hash(main.MODEL_PATH) == hashlib.sha256(main.MODEL_PATH.read_bytes()).hexdigest()
+    assert application.state.model is not None
+    assert expected_hash(MODEL_PATH) == hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest()
 
 
 # @req ETA-011
 def test_refuses_tampered_model(tmp_path):
-    original = main.MODEL_PATH.read_bytes()
+    original = MODEL_PATH.read_bytes()
     tampered = tmp_path / "model.pkl"
     tampered.write_bytes(original + b"\x00")
 
-    assert main.load_model(tampered, hashlib.sha256(original).hexdigest()) is None
+    assert load_model(tampered, hashlib.sha256(original).hexdigest()) is None
 
 
 # @req ETA-011
-def test_refuses_model_without_known_hash(tmp_path, monkeypatch):
-    monkeypatch.delenv("MODEL_SHA256", raising=False)
+def test_refuses_model_without_known_hash(tmp_path):
     copy = tmp_path / "model.pkl"
-    copy.write_bytes(main.MODEL_PATH.read_bytes())
+    copy.write_bytes(MODEL_PATH.read_bytes())
 
-    assert main.expected_hash(copy) is None
-    assert main.load_model(copy, None) is None
+    assert expected_hash(copy) is None
+    assert load_model(copy, None) is None
 
 
 # @req ETA-011
 def test_hash_can_come_from_environment(tmp_path, monkeypatch):
     copy = tmp_path / "model.pkl"
-    copy.write_bytes(main.MODEL_PATH.read_bytes())
+    copy.write_bytes(MODEL_PATH.read_bytes())
+    monkeypatch.setenv("SERVICE_TOKEN", "x")
+    monkeypatch.setenv("MODEL_PATH", str(copy))
     monkeypatch.setenv("MODEL_SHA256", hashlib.sha256(copy.read_bytes()).hexdigest().upper())
 
-    assert main.load_model(copy, main.expected_hash(copy)) is not None
+    settings = Settings.from_env()
+
+    assert settings.model_path == copy
+    assert load_model(copy, expected_hash(copy, settings.model_sha256)) is not None
 
 
 # @req ETA-004
 def test_missing_model_file_is_not_fatal(tmp_path):
-    assert main.load_model(tmp_path / "nao-existe.pkl", "0" * 64) is None
+    assert load_model(tmp_path / "nao-existe.pkl", "0" * 64) is None
