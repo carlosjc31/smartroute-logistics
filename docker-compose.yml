@@ -29,7 +29,7 @@ services:
 
   keycloak:
     <<: *hardening
-    image: quay.io/keycloak/keycloak:26.0.7
+    image: quay.io/keycloak/keycloak:26.8.2-3
     container_name: smart-logistics-keycloak
     # start-dev: HTTP e banco H2 interno, só para desenvolvimento. Produção: "start" com HTTPS e Postgres.
     command: ["start-dev", "--import-realm", "--http-port=8080"]
