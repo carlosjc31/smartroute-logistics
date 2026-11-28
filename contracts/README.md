@@ -9,14 +9,14 @@ OpenAPI 3.0.3 com todas as rotas de `/api/v1`, os erros RFC 7807 e o perfil exig
 
 | Quem usa | Como | Verificação |
 |---|---|---|
-| backend-core | `openapi-generator-maven-plugin` gera as interfaces (`controller/api`) e os DTOs (`controller/dto`) no build | `ApiContractTest` (nenhuma rota fora do contrato) e compilação dos controllers |
+| backend-core | `openapi-generator-maven-plugin` gera as interfaces (`com.logistics.logistics.api`) e os DTOs (`api.dto`) no build | `ApiContractTest` (nenhuma rota fora do contrato) e compilação dos controllers |
 | frontend | `npm run generate:api` gera `src/api/schema.d.ts` | CI falha se o arquivo gerado estiver desatualizado |
 | CI | `oasdiff breaking` contra a branch de destino | Falha em quebra de compatibilidade sem o rótulo `quebra-de-contrato` |
 
 Para mudar a API:
 
 1. Edite `api/openapi.yaml` (no PR do plano da spec, quando houver).
-2. Backend: `./mvnw compile` regera o código; ajuste o controller e o `ApiMapper`.
+2. Backend: `./mvnw compile` regera o código; ajuste o controller e o mapper do módulo.
 3. Frontend: `npm run generate:api` e versione `src/api/schema.d.ts`.
 4. Quebra de compatibilidade (campo removido, validação mais restrita, rota removida) exige `/api/v2` ou
    uma janela de compatibilidade descrita no plano, e o rótulo `quebra-de-contrato` no PR.

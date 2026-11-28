@@ -65,13 +65,19 @@ flowchart LR
 | [`ai-engine`](ai-engine) | Python 3.12, FastAPI, scikit-learn | Inferência de ETA com `RandomForestRegressor` |
 | [`smartroute-frontend`](smartroute-frontend) | React 19, TypeScript, Vite, React Router, TanStack Query | Painel de despacho |
 
-O `backend-core` segue a **arquitetura hexagonal**:
+O `backend-core` é um **monólito modular** ([Spring Modulith](https://spring.io/projects/spring-modulith),
+[ADR 0004](docs/adr/0004-monolito-modular.md)), com arquitetura hexagonal dentro de cada módulo:
 
 ```
-domain/          Regras de negócio puras (Trip, TripStatus, Coordinates, estimador heurístico)
-application/     Casos de uso e portas de saída (repositório, previsão de ETA, geocodificação)
-infrastructure/  Adapters: REST, JPA, cliente do ai-engine, Nominatim, configuração
+trip/        Viagens e previsão de chegada (domain, application, infrastructure)   schema trip
+geocoding/   Endereço → coordenadas pelo Nominatim, com cache                       sem tabelas
+audit/       Auditoria append-only das alterações                                   schema audit
+shared/      Coordenadas, paginação, segurança, erros HTTP (aberto a todos)
+api/         Interfaces e DTOs gerados do contrato OpenAPI (aberto a todos)
 ```
+
+As fronteiras são verificadas em teste: um módulo só usa a API pública de outro e não lê as tabelas dele.
+Eventos entre módulos passam por um outbox no banco.
 
 ## Primeiros passos
 
@@ -224,7 +230,8 @@ Cada serviço tem sua suíte, e o [CI](.github/workflows/ci.yml) roda todas em c
 |---|---|---|
 | Backend: unitários, controller, segurança e PostgreSQL embarcado | JUnit 5, Mockito, spring-security-test, zonky | `cd backend-core && ./mvnw test` |
 | Backend: integração ponta a ponta com JWT real | Testcontainers (PostgreSQL), WireMock (ai-engine, Nominatim, JWKS) | `./mvnw verify` (exige Docker) |
-| Backend: cobertura mínima de 80% em `domain/` e `application/` | JaCoCo | `./mvnw verify` |
+| Backend: cobertura mínima de 80% no domínio, na aplicação e na API pública de cada módulo | JaCoCo | `./mvnw verify` |
+| Backend: fronteiras entre módulos e regras hexagonais | Spring Modulith e ArchUnit | `./mvnw test` |
 | ai-engine: API, token de serviço, hash do modelo e qualidade do modelo | pytest, TestClient | `cd ai-engine && pip install -r requirements-dev.txt && pytest` |
 | Contrato backend ↔ ai-engine | exemplos em [`contracts/`](contracts) testados pelos dois lados | incluído nas suítes acima |
 | Frontend: componentes e cliente da API | Vitest, Testing Library | `cd smartroute-frontend && npm test` |

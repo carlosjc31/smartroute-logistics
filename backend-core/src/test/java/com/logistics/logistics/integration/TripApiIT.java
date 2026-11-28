@@ -159,7 +159,7 @@ class TripApiIT {
     assertThat(completed.get("actualArrival")).isNotNull();
     assertThat(completed.get("allowedTransitions")).isEqualTo(List.of());
 
-    assertThat(jdbc.queryForObject("select status from trips where id = ?::uuid", String.class, id))
+    assertThat(jdbc.queryForObject("select status from trip.trips where id = ?::uuid", String.class, id))
         .isEqualTo("COMPLETED");
     Map<String, Object> page = api.get().uri("/trips?status=COMPLETED").retrieve().body(MAP);
     assertThat((List<Map<String, Object>>) page.get("items")).extracting(item -> item.get("id")).contains((Object) id);

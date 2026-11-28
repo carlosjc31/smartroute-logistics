@@ -37,8 +37,8 @@ estimativa heurística do domínio (`eta.source = FALLBACK`).
   requisito sem teste ou se um `@req` apontar para requisito inexistente; `--report` mostra o mapa.
 - Decisões de arquitetura ficam em `docs/adr/` (formato em `docs/adr/template.md`). Leia as ADRs antes
   de propor mudança estrutural; decisão nova vira ADR nova, a antiga é marcada como substituída.
-- Reestruturação em andamento antes da Fase 4: R1 (SDD e ADRs, feita), R2 (API contract-first,
-  ADR 0009, feita), R3 (monólito modular com Spring Modulith, ADR 0004), R4 (ai-engine em pacote e frontend por
+- Reestruturação antes da Fase 4: R1 (SDD e ADRs), R2 (API contract-first, ADR 0009) e R3 (monólito
+  modular com Spring Modulith, ADR 0004) feitas; falta R4 (ai-engine em pacote e frontend por
   funcionalidade).
 
 ## Comandos
@@ -76,29 +76,45 @@ npm run generate:api             # regera src/api/schema.d.ts de contracts/api/o
 E2E_PASSWORD=... npm run e2e     # Playwright; exige o compose no ar (login real no Keycloak)
 ```
 
-## Arquitetura do backend (hexagonal)
+## Arquitetura do backend (monólito modular, hexagonal por dentro)
 
-Pacote base `com.logistics.logistics`:
+Pacote base `com.logistics.logistics`, um pacote de topo por módulo (Spring Modulith, ADR 0004):
 
-- `domain/` — regras de negócio puras, **sem Spring/JPA**. Records imutáveis (`Trip`, `Coordinates`,
+| Módulo | Responsabilidade | API pública (pacote raiz) | Schema |
+|---|---|---|---|
+| `trip` | Viagens, ETA (ai-engine + heurística), ciclo de vida (spec 001) | eventos `TripCreated`, `TripStatusChanged` | `trip` |
+| `geocoding` | Nominatim com cache e 1 req/s (spec 002) | nenhuma (só a rota HTTP) | nenhum |
+| `audit` | Auditoria append-only (TRIP-010 a 013) | `AuditService`, `AuditAction`, `AuditEntry` | `audit` |
+| `shared` (aberto) | `Coordinates`, `PageResult`, exceções base, `security/`, `web/GlobalExceptionHandler`, `config/` | tudo | nenhum |
+| `api` (aberto) | Interfaces e DTOs gerados do contrato (ADR 0009) | tudo | nenhum |
+
+Dentro de cada módulo:
+- `domain/` — regras de negócio puras, **sem Spring/JPA/Jackson**. Records imutáveis (`Trip`,
   `EtaPrediction`) que validam invariantes no construtor compacto e devolvem novas instâncias nas
-  operações (`withPrediction`, `transitionTo`). `TripStatus` define a máquina de estados.
-  `HeuristicEtaEstimator` é o fallback de ETA. Exceções de regra estendem `DomainException`.
-- `application/` — casos de uso em `service/` (`TripService`, `GeocodingService`) e **portas de saída**
-  em `port/out/` (`TripRepositoryPort`, `EtaPredictionPort`, `GeocodingPort`). Não importa nada de
-  `infrastructure`. Exceções da aplicação em `exception/`.
-- `infrastructure/` — adapters que implementam as portas: `persistence/` (JPA + mapper),
-  `adapters/ai/` (ai-engine com timeout, retry e circuit breaker do Resilience4j),
-  `adapters/geocoding/` (Nominatim, 1 req/s); `persistence/AuditLogJdbcAdapter` (auditoria, só INSERT);
-  `controller/` (REST, DTOs e `GlobalExceptionHandler`); `security/` (JWT do Keycloak, perfis, CORS,
-  headers, rate limit); `config/`.
+  operações (`withPrediction`, `transitionTo`). `TripStatus` define a máquina de estados;
+  `HeuristicEtaEstimator` é o fallback de ETA. Exceções de regra estendem `shared.domain.DomainException`.
+- `application/` — casos de uso (`TripService`, `GeocodingService`) e portas de saída
+  (`TripRepositoryPort`, `EtaPredictionPort`, `GeocodingPort`, `AuditLogPort`). Não importa
+  `infrastructure` nem os DTOs gerados.
+- `infrastructure/` — adapters: `persistence/` (JPA + mapper; `AuditLogJdbcAdapter`, só INSERT),
+  `ai/` (ai-engine com timeout, retry e circuit breaker do Resilience4j), `nominatim/`, `web/`
+  (controllers que implementam as interfaces geradas, e o mapper de DTOs do módulo).
+
+Fronteiras (verificadas por `architecture/ModularityTest` e `HexagonalArchitectureTest`):
+- Um módulo só usa o **pacote raiz** de outro (a API pública) e nunca `outro.domain`, `outro.application`
+  ou `outro.infrastructure`. Sem ciclos. `shared` não depende de módulo nenhum.
+- Nenhum módulo lê tabela de outro: cada um usa o próprio schema (`trip.trips`, `audit.audit_log`).
+- Comunicação entre módulos: chamada à API pública quando precisa da mesma transação (auditoria), ou
+  evento de domínio. Consumidor de evento usa `@ApplicationModuleListener` (depois do commit, assíncrono,
+  com outbox em `events.event_publication`). Eventos nunca carregam coordenadas nem endereços.
+- `./mvnw test` gera os diagramas dos módulos em `target/spring-modulith-docs`.
 
 Regras:
 - **Contract-first (ADR 0009):** a API está em `contracts/api/openapi.yaml`. As interfaces
-  (`controller/api`) e os DTOs (`controller/dto`, classes `*DTO`) são **gerados** no build pelo
+  (`com.logistics.logistics.api`) e os DTOs (`api.dto`, classes `*DTO`) são **gerados** no build pelo
   `openapi-generator-maven-plugin`: não os escreva à mão. Os controllers implementam as interfaces e
-  convertem com `controller/mapper/ApiMapper`. Rota nova começa no contrato; `ApiContractTest` falha se
-  o backend publicar rota fora dele.
+  convertem com o mapper do módulo (`TripApiMapper`, `AuditApiMapper`). Rota nova começa no contrato;
+  `ApiContractTest` falha se o backend publicar rota fora dele.
 - Não exponha entidades JPA nem records de domínio na API; use os DTOs gerados.
 - Erros saem como RFC 7807 (`ProblemDetail`): 400 validação (com `errors` por campo), 404 não
   encontrado, 409 regra de negócio, 503 dependência externa fora.
@@ -111,10 +127,13 @@ Regras:
   ou credenciais.
 - Use `Clock` injetado em vez de `now()` direto nos casos de uso (testabilidade).
 - Toda rota nova precisa de regra explícita em `SecurityConfig` (o padrão é `denyAll`) e de teste de
-  acesso em `ApiSecurityTest`. Perfis em `security/Roles`; a aplicação não importa Spring Security, e o
-  ator vem da porta `CurrentActorPort`.
-- Toda alteração de dado de negócio passa por `AuditService` na mesma transação. Os estados auditados
-  nunca incluem coordenadas nem endereços.
+  acesso em `ApiSecurityTest` (ambos em `shared/security`). Perfis em `Roles`; a aplicação não importa
+  Spring Security, e o ator vem da porta `shared.application.CurrentActorPort`.
+- Toda alteração de dado de negócio passa por `AuditService.record` na mesma transação. O módulo dono do
+  dado monta o estado auditado (por exemplo `TripAuditSnapshot`), que nunca inclui coordenadas nem
+  endereços.
+- Dependência externa fora (Nominatim...) lança uma subclasse de `DependencyUnavailableException`, que
+  vira 503 com mensagem ao usuário e log só com o tipo da causa.
 
 ## Contrato backend ↔ ai-engine
 
@@ -128,7 +147,7 @@ Regras:
   "status": "success", "metadata": { "traffic_impact": "High" } }
 ```
 
-- Campos em `snake_case` no JSON; mapeados em `adapters/ai/PredictionResponse` com `@JsonProperty`.
+- Campos em `snake_case` no JSON; mapeados em `trip/infrastructure/ai/PredictionResponse` com `@JsonProperty`.
 - `predicted_arrival_hours` é **decimal**: converta para minutos (`Trip.estimateArrival`), nunca trunque.
 - Modelo indisponível → `503`. Entrada inválida → `422` (validação Pydantic). Sem token → `401`.
 - Autenticação: `Authorization: Bearer <AI_ENGINE_TOKEN>` (no ai-engine, `SERVICE_TOKEN`). O modelo só
@@ -189,6 +208,8 @@ Variáveis de ambiente: `SPRING_PROFILES_ACTIVE`, `SPRING_DATASOURCE_URL`, `SPRI
 
 - Perfis `DRIVER` e `CUSTOMER` ainda sem acesso: dependem do vínculo com a viagem (Fase 4, #38, #39).
 - Rate limit em memória (por instância); multi-réplica exige Redis.
+- Outbox sem consumidor ainda: o primeiro (#43) define a reentrega de publicações pendentes
+  (`spring.modulith.events.republish-outstanding-events-on-restart`) e a limpeza das concluídas.
 - LGPD: retenção e direitos do titular pendentes (#34).
 - `is_rainy` sempre 0 e `confidence_score` fixo: issues #47 e #49.
 - Distância em linha reta, não por estrada: issue #45.

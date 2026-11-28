@@ -1,8 +1,8 @@
 # 0004 — Monólito modular com critérios de extração de serviço
 
-- **Status:** Aceita (implementação na etapa R3)
+- **Status:** Aceita (implementada na R3, #93)
 - **Data:** 2026-11-27
-- **Specs e issues:** Fase 4 (#36 a #43)
+- **Specs e issues:** #93, Fase 4 (#36 a #43)
 
 ## Contexto
 
@@ -35,6 +35,30 @@ Microsserviços foram considerados para a reestruturação e descartados por ora
 5. Candidatos já identificados, a avaliar nas etapas em que surgem: **tracking** (ingestão de GPS,
    4.4/4.5) e **notificações** (consumidor do outbox, #43). O ai-engine já é separado
    ([ADR 0006](0006-ai-engine-servico-separado.md)).
+
+## Implementação (R3)
+
+- **Módulos:** `trip`, `geocoding` e `audit`, mais `shared` e `api` abertos. O `api` traz as interfaces e
+  os DTOs gerados do contrato ([ADR 0009](0009-api-contract-first.md)). A API pública de um módulo é o
+  pacote raiz dele; `domain`, `application` e `infrastructure` são internos.
+- **Ciclo removido:** antes, a auditoria conhecia `Trip` e as viagens conheciam a auditoria. Agora o `trip`
+  monta o estado auditado (`TripAuditSnapshot`, sem dados pessoais) e chama `AuditService.record`.
+- **Auditoria por chamada, não por evento:** a constituição (art. 6) exige a auditoria na mesma
+  transação, com rollback se ela falhar. Uma chamada síncrona à API pública deixa isso explícito; um
+  ouvinte síncrono de evento faria o mesmo de forma menos visível.
+- **Schemas:** a migration V4 move as tabelas com `ALTER TABLE ... SET SCHEMA` (`trip.trips`,
+  `audit.audit_log`, junto com a função das triggers), sem copiar dados. O `LegacySchemaMigrationTest`
+  cobre bancos antigos.
+- **Outbox:** o *event publication registry* (JDBC) fica no schema `events`, com a tabela criada pelo
+  Flyway. O `trip` publica `TripCreated` e `TripStatusChanged` (TRIP-014). Os ouvintes usam
+  `@ApplicationModuleListener` (depois do commit, assíncrono, `@EnableAsync`). `TripEventOutboxTest`
+  prova a gravação e a conclusão da publicação.
+- **Dependências:** em produção entram só `spring-modulith-api` e os módulos de eventos. O
+  `spring-modulith-core` e o ArchUnit, que fazem a verificação, ficam no escopo de teste.
+- **Verificação:**
+  - `architecture/ModularityTest` roda `ApplicationModules.verify()` e gera os diagramas em
+    `target/spring-modulith-docs`;
+  - `HexagonalArchitectureTest` (ArchUnit) verifica as regras de camada.
 
 ## Alternativas consideradas
 
